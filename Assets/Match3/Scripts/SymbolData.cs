@@ -1,19 +1,8 @@
 ﻿using UnityEngine;
 
-public enum SymbolColor
+[CreateAssetMenu(fileName = "New Symbol Type", menuName = "Panda/Symbols/Create Symbol Type")]
+public class SymbolType: ScriptableObject
 {
-    White,
-    Green,
-    Blue,
-    Purple,
-    Yellow,
-    Orange,
-    Red,
-}
-
-[CreateAssetMenu(fileName = "New Symbol", menuName = "Panda/Symbols/Create Symbol")]
-public class SymbolData : ScriptableObject
-{
-    public Sprite icon;
-    public SymbolColor color;
+    public float PointMultiplier = 1f;
+    public Color Color = Color.white;
 }

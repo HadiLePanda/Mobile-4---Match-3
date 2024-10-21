@@ -3,33 +3,32 @@
 public class Symbol : MonoBehaviour
 {
     [Header("Settings")]
-    [SerializeField] private SymbolData data;
+    [SerializeField] private SymbolType type;
     
     private int x;
     private int y;
-    
-    public bool isMatched;
-    public bool isMoving;
+    private bool isMatched;
+    private bool isMoving;
     
     public int X => x;
     public int Y => y;
     public bool IsMatched => isMatched;
     public bool IsMoving => isMoving;
-    public SymbolData Data => data;
+    public SymbolType Type => type;
     
     private Vector2 currentPos;
     private Vector2 targetPos;
 
-    public Symbol(int x, int y)
-    {
-        SetIndices(x, y);
-    }
-
     // TODO: Initialize by updating icon etc..
 
-    public void SetIndices(int x, int y)
+    public void SetIndices(Vector2Int indices)
     {
-        this.x = x;
-        this.y = y;
+        x = indices.x;
+        y = indices.y;
     }
+    public void SetMatchedState(bool isMatched) => this.isMatched = isMatched;
+    public void SetMovingState(bool isMoving) => this.isMoving = isMoving;
+
+    // TODO: MoveToTarget
+    // TODO: MoveCoroutine
 }

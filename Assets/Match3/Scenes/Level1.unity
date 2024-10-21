@@ -152,17 +152,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   symbolPrefabs:
-  - {fileID: 9003223963689281457, guid: dcfa150433e47994ebf8b1bc2346b4f9, type: 3}
-  - {fileID: 6849145136739177961, guid: 1f9bc2baa3eecbe48aaac571067bd966, type: 3}
-  - {fileID: 5360176583839675055, guid: 1977995712407c04a9f16047a8d9552e, type: 3}
-  - {fileID: 5654466434300138898, guid: e604a0a06f0ad2f4588b7a1127b77381, type: 3}
-  - {fileID: 5182403206852857962, guid: b06ad6d962700de40a25e00ccd3b09c8, type: 3}
-  - {fileID: 5076765230915325859, guid: fe78d4afa3f68664fa71adf376f4aea6, type: 3}
-  - {fileID: 2705507177751519838, guid: 06e4910d9238ddb418ce390133ed7724, type: 3}
-  boardObject: {fileID: 37403492}
+  - {fileID: 741216362144066097, guid: dcfa150433e47994ebf8b1bc2346b4f9, type: 3}
+  - {fileID: 3005511815076042857, guid: 1f9bc2baa3eecbe48aaac571067bd966, type: 3}
+  - {fileID: 4385265860396678959, guid: 1977995712407c04a9f16047a8d9552e, type: 3}
+  - {fileID: 4089276603457230866, guid: e604a0a06f0ad2f4588b7a1127b77381, type: 3}
+  - {fileID: 3554233349956001258, guid: b06ad6d962700de40a25e00ccd3b09c8, type: 3}
+  - {fileID: 3516465993502491171, guid: fe78d4afa3f68664fa71adf376f4aea6, type: 3}
+  - {fileID: 5995223856448548830, guid: 06e4910d9238ddb418ce390133ed7724, type: 3}
   symbolsParent: {fileID: 608228296}
+  boardObject: {fileID: 37403492}
   width: 6
   height: 8
+  maxTriesToGenerateBoard: 100
   arrayLayout:
     rows:
     - row: 000000000000
@@ -758,7 +759,7 @@ SceneRoots:
   - {fileID: 1986778090}
   - {fileID: 1317081300975906946}
   - {fileID: 696748275}
+  - {fileID: 37403494}
   - {fileID: 1981586537}
   - {fileID: 213194408}
-  - {fileID: 37403494}
   - {fileID: 321552779}

@@ -1,14 +1,14 @@
 using UnityEngine;
 
-public class Node
+public class Tile
 {
     private bool isUsable;
-    private GameObject symbol;
+    private Symbol symbol;
 
     public bool IsUsable => isUsable;
-    public GameObject Symbol => symbol;
+    public Symbol Symbol => symbol;
 
-    public Node(bool isUsable, GameObject symbol)
+    public Tile(bool isUsable, Symbol symbol)
     {
         this.isUsable = isUsable;
         this.symbol = symbol;

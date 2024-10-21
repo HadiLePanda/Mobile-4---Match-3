@@ -1,19 +1,37 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
+
+public class MatchResult
+{
+    public List<Symbol> connectedSymbols;
+    public MatchDirection direction;
+}
+
+public enum MatchDirection
+{
+    None,
+    Vertical,
+    Horizontal,
+    LongVertical,
+    LongHorizontal,
+    Super
+}
 
 public class Board : MonoBehaviour
 {
     [Header("References")]
-    public GameObject[] symbolPrefabs;
-    public GameObject boardObject;
+    public Symbol[] symbolPrefabs;
     public Transform symbolsParent;
+    public GameObject boardObject;
 
     [Header("Settings")]
     public int width = 6;
     public int height = 8;
+    public int maxTriesToGenerateBoard = 100;
     public ArrayLayout arrayLayout;
 
-    private Node[,] board;
+    private Tile[,] board;
     private float spacingX;
     private float spacingY;
 
@@ -26,15 +44,39 @@ public class Board : MonoBehaviour
 
     private void Start()
     {
-        InitializeBoard();
+        // try to generate a board with no matches on start
+        int triesToGenerateBoard = 0;
+        while (triesToGenerateBoard < maxTriesToGenerateBoard)
+        {
+            GenerateBoard();
+
+            // check for matches
+            // we want to find a board that has no matches
+            if (!BoardContainsMatch())
+                break;
+
+            Debug.Log("Found matches when generating the board, regenerating new board.");
+            triesToGenerateBoard++;
+
+            ClearBoard();
+        }
     }
 
-    private void InitializeBoard()
+    #region BOARD
+    private void ClearBoard()
+    {
+        // destroy all the spawned symbols
+        // all the spawned symbols are under the symbols parent
+        foreach (Transform symbol in symbolsParent)
+            Destroy(symbol.gameObject);
+    }
+
+    private void GenerateBoard()
     {
         // create a new empty board of chosen size
-        board = new Node[width, height];
+        board = new Tile[width, height];
         
-        // calculate spacing between nodes
+        // calculate spacing between tiles
         spacingX = (float)(width - 1) / 2;
         spacingY = (float)(height - 1) / 2;
 
@@ -43,32 +85,193 @@ public class Board : MonoBehaviour
         {
             for (int x = 0; x < width; x++)
             {
-                // get random position
-                Vector2 position = new(x - spacingX, y - spacingY);
-
-                // in case it's a usable position (not ticked in the inspector)
-                // let's spawn a symbol
+                // spawn symbol in usable tiles
+                // (unticked in inspector)
                 if (arrayLayout.rows[y].row[x] == false)
                 {
                     // choose a random symbol
                     int randomIndex = Random.Range(0, symbolPrefabs.Length);
-                    GameObject symbolPrefab = symbolPrefabs[randomIndex];
+                    Symbol symbolPrefab = symbolPrefabs[randomIndex];
 
                     // spawn the symbol
-                    GameObject symbolInstance = Instantiate(symbolPrefab, position, Quaternion.identity, symbolsParent);
-                    symbolInstance.GetComponent<Symbol>().SetIndices(x, y);
+                    Vector2 spawnPosition = new(x - spacingX, y - spacingY);
+                    Symbol symbolInstance = SpawnSymbol(new Vector2Int(x, y), spawnPosition, symbolPrefab);
 
-                    // create a new node in the board for this symbol
-                    board[x, y] = new Node(true, symbolInstance);
+                    // create a new tile in the board for this symbol
+                    board[x, y] = new Tile(true, symbolInstance);
                 }
-                // otherwise if it's a blocked position (ticked in the inspector)
-                // create an unusable node at this position
+                // create unusable tiles
+                // (ticked in inspector)
                 else
                 {
-                    // create an unusable node
-                    board[x, y] = new Node(false, null);
+                    board[x, y] = new Tile(false, null);
                 }
             }
         }
+
+        Debug.Log("Generated new board.");
     }
+
+    private Symbol SpawnSymbol(Vector2Int indices, Vector2 spawnPosition, Symbol symbolPrefab)
+    {
+        Symbol symbolInstance = Instantiate(symbolPrefab, spawnPosition, Quaternion.identity);
+        symbolInstance.transform.SetParent(symbolsParent, false);
+        symbolInstance.SetIndices(indices);
+        return symbolInstance;
+    }
+    #endregion
+
+    #region CHECKING
+    public bool BoardContainsMatch()
+    {
+        Debug.Log("Checking for matches...");
+
+        bool hasMatched = false;
+
+        List<Symbol> symbolsToRemove = new();
+        for (int x = 0; x < width; x++)
+        {
+            for(int y = 0; y < height; y++)
+            {
+                // check if usable tile
+                if (!board[x, y].IsUsable)
+                    continue;
+
+                // get the symbol in this tile
+                Symbol symbol = board[x, y].Symbol;
+
+                // check if it's not already matched
+                if (symbol.IsMatched)
+                    continue;
+
+                // run some matching logic
+                MatchResult matchResult = IsConnected(symbol);
+
+                // we found a match
+                if (matchResult.connectedSymbols.Count >= 3)
+                {
+                    // TOOD: complex matching (supers etc.)
+
+                    // add the connected symbols to the list of symbols to consume
+                    symbolsToRemove.AddRange(matchResult.connectedSymbols);
+
+                    // mark connected symbols as matched to avoid using them again for matching logic
+                    foreach (Symbol connectedSymbol in matchResult.connectedSymbols)
+                        connectedSymbol.SetMatchedState(true);
+
+                    hasMatched = true;
+                }
+            }
+        }
+
+        return hasMatched;
+    }
+
+    private MatchResult IsConnected(Symbol symbol)
+    {
+        List<Symbol> connectedSymbols = new();
+        SymbolType symbolType = symbol.Type;
+
+        // read our initial symbol
+        connectedSymbols.Add(symbol);
+
+        // check for horizontal connections
+        CheckDirection(symbol, Vector2Int.right, connectedSymbols);
+        CheckDirection(symbol, Vector2Int.left, connectedSymbols);
+        // found horizontal match (3)
+        if (connectedSymbols.Count == 3)
+        {
+            Debug.Log($"Normal horizontal 3 match. Type: {connectedSymbols[0].Type.name}");
+            return new MatchResult
+            {
+                connectedSymbols = connectedSymbols,
+                direction = MatchDirection.Horizontal
+            };
+        }
+        // found long horizontal match (> 3)
+        else if (connectedSymbols.Count > 3)
+        {
+            Debug.Log($"Long horizontal match. Type: {connectedSymbols[0].Type.name}");
+            return new MatchResult
+            {
+                connectedSymbols = connectedSymbols,
+                direction = MatchDirection.LongHorizontal
+            };
+        }
+
+        // clear out the connected symbols to avoid accidental matches
+        connectedSymbols.Clear();
+        // read our initial symbol
+        connectedSymbols.Add(symbol);
+
+        // check for vertical connections
+        CheckDirection(symbol, Vector2Int.up, connectedSymbols);
+        CheckDirection(symbol, Vector2Int.down, connectedSymbols);
+        // found vertical match (3)
+        if (connectedSymbols.Count == 3)
+        {
+            Debug.Log($"Normal vertical 3 match. Type: {connectedSymbols[0].Type.name}");
+            return new MatchResult
+            {
+                connectedSymbols = connectedSymbols,
+                direction = MatchDirection.Vertical
+            };
+        }
+        // found long vertical match (> 3)
+        else if (connectedSymbols.Count > 3)
+        {
+            Debug.Log($"Long vertical match. Type: {connectedSymbols[0].Type.name}");
+            return new MatchResult
+            {
+                connectedSymbols = connectedSymbols,
+                direction = MatchDirection.LongVertical
+            };
+        }
+
+        // we did not find any match
+        return new MatchResult
+        {
+            connectedSymbols = connectedSymbols,
+            direction = MatchDirection.None
+        };
+    }
+
+    private void CheckDirection(Symbol symbol, Vector2Int direction, List<Symbol> connectedSymbols)
+    {
+        SymbolType symbolType = symbol.Type;
+
+        int x = symbol.X + direction.x;
+        int y = symbol.Y + direction.y;
+
+        // check that we're within the boundaries of the board
+        while (
+            x >= 0 && x < width &&
+            y >= 0 && y < height)
+        {
+            // is a usable tile?
+            if (!board[x, y].IsUsable)
+                break;
+
+            // get the neighbour symbol
+            Symbol neighbourSymbol = board[x, y].Symbol;
+
+            // do the symbol type match?
+            // and is not already matched?
+            if (neighbourSymbol.IsMatched || neighbourSymbol.Type != symbolType)
+                break;
+
+            // it's a connected symbol
+            // add it to the connection list
+            connectedSymbols.Add(neighbourSymbol);
+
+            x += direction.x;
+            y += direction.y;
+        }
+    }
+
+    #endregion
+
+    #region SWAPPING
+    // TODO: 
+    #endregion
 }

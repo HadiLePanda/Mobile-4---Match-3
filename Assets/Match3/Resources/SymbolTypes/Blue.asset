@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 27b99925f53148969a67c94431f0024a, type: 3}
-  m_Name: Pear
+  m_Name: Blue
   m_EditorClassIdentifier: 
-  icon: {fileID: 21300000, guid: 50dd2e8acaa7426438d693e39eb73026, type: 3}
-  color: 1
+  PointMultiplier: 1.2
+  Color: {r: 0, g: 0.73189855, b: 1, a: 1}
