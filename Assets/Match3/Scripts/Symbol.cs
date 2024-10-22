@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 
 public class Symbol : MonoBehaviour
 {
@@ -26,9 +27,32 @@ public class Symbol : MonoBehaviour
         x = indices.x;
         y = indices.y;
     }
-    public void SetMatchedState(bool isMatched) => this.isMatched = isMatched;
-    public void SetMovingState(bool isMoving) => this.isMoving = isMoving;
+    public void SetIsMatched(bool isMatched) => this.isMatched = isMatched;
+    public void SetIsMoving(bool isMoving) => this.isMoving = isMoving;
 
-    // TODO: MoveToTarget
-    // TODO: MoveCoroutine
+    // MOVEMENT
+    public void MoveToPosition(Vector2 targetPos)
+    {
+        // TODO: use LeanTween to easily animate movement
+        StartCoroutine(MoveCoroutine(targetPos));
+    }
+    private IEnumerator MoveCoroutine(Vector2 targetPos)
+    {
+        isMoving = true;
+
+        float animationDuration = Board.Instance.symbolSwapDuration;
+
+        Vector2 startPos = transform.position;
+        float elapsedTime = 0f;
+        while (elapsedTime < animationDuration)
+        {
+            float t = elapsedTime / animationDuration;
+            transform.position = Vector2.Lerp(startPos, targetPos, t);
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        transform.position = targetPos;
+        isMoving = false;
+    }
 }

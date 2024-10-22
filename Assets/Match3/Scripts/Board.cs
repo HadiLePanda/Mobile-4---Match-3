@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
@@ -18,6 +19,12 @@ public enum MatchDirection
     Super
 }
 
+public enum BoardState
+{
+    Idle,
+    ProcessingMove
+}
+
 public class Board : MonoBehaviour
 {
     [Header("References")]
@@ -29,11 +36,19 @@ public class Board : MonoBehaviour
     public int width = 6;
     public int height = 8;
     public int maxTriesToGenerateBoard = 100;
+    public float symbolSwapDuration = 0.2f;
     public ArrayLayout arrayLayout;
+
+    [Header("Debug")]
+    [SerializeField, ReadOnly] private  BoardState state;
+    [SerializeField, ReadOnly] private Symbol selectedSymbol;
 
     private Tile[,] board;
     private float spacingX;
     private float spacingY;
+
+
+    public BoardState State => state;
 
     public static Board Instance;
 
@@ -44,6 +59,8 @@ public class Board : MonoBehaviour
 
     private void Start()
     {
+        state = BoardState.Idle;
+
         // try to generate a board with no matches on start
         int triesToGenerateBoard = 0;
         while (triesToGenerateBoard < maxTriesToGenerateBoard)
@@ -59,6 +76,29 @@ public class Board : MonoBehaviour
             triesToGenerateBoard++;
 
             ClearBoard();
+        }
+    }
+
+    private void Update()
+    {
+        // detect player click
+        if (Input.GetMouseButtonDown(0))
+        {
+            // send a raycast
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            RaycastHit2D hit = Physics2D.Raycast(ray.origin, ray.direction);
+
+            // we clicked on a symbol
+            if (hit.collider != null && hit.collider.GetComponentInParent<Symbol>())
+            {
+                // we're in the process of moving tiles around, so don't do anything
+                if (state == BoardState.ProcessingMove)
+                    return;
+
+                // select
+                Symbol clickedSymbol = hit.collider.GetComponentInParent<Symbol>();
+                OnSymbolClicked(clickedSymbol);
+            }
         }
     }
 
@@ -134,11 +174,11 @@ public class Board : MonoBehaviour
             for(int y = 0; y < height; y++)
             {
                 // check if usable tile
-                if (!board[x, y].IsUsable)
+                if (!board[x, y].isUsable)
                     continue;
 
                 // get the symbol in this tile
-                Symbol symbol = board[x, y].Symbol;
+                Symbol symbol = board[x, y].symbol;
 
                 // check if it's not already matched
                 if (symbol.IsMatched)
@@ -157,7 +197,7 @@ public class Board : MonoBehaviour
 
                     // mark connected symbols as matched to avoid using them again for matching logic
                     foreach (Symbol connectedSymbol in matchResult.connectedSymbols)
-                        connectedSymbol.SetMatchedState(true);
+                        connectedSymbol.SetIsMatched(true);
 
                     hasMatched = true;
                 }
@@ -249,11 +289,11 @@ public class Board : MonoBehaviour
             y >= 0 && y < height)
         {
             // is a usable tile?
-            if (!board[x, y].IsUsable)
+            if (!board[x, y].isUsable)
                 break;
 
             // get the neighbour symbol
-            Symbol neighbourSymbol = board[x, y].Symbol;
+            Symbol neighbourSymbol = board[x, y].symbol;
 
             // do the symbol type match?
             // and is not already matched?
@@ -272,6 +312,83 @@ public class Board : MonoBehaviour
     #endregion
 
     #region SWAPPING
-    // TODO: 
+    public void OnSymbolClicked(Symbol symbol)
+    {
+        // if we don't have any symbol currently selected, then select it
+        if (selectedSymbol == null)
+        {
+            Debug.Log(symbol);
+            SelectSymbol(symbol);
+        }
+        // if we selected the same symbol twice, deselect it
+        else if (selectedSymbol == symbol)
+        {
+            DeselectCurrentSymbol();
+        }
+        // if we selected a different symbol while we have a symbol selected, swap them
+        else if (selectedSymbol != symbol)
+        {
+            SwapSymbol(selectedSymbol, symbol);
+
+            DeselectCurrentSymbol();
+        }
+    }
+
+    private void SelectSymbol(Symbol symbol) => selectedSymbol = symbol;
+    private void DeselectCurrentSymbol() => selectedSymbol = null;
+
+    private void SwapSymbol(Symbol firstSymbol, Symbol secondSymbol)
+    {
+        // check if the symbols are adjacent to eachother
+        if (!IsAdjacent(firstSymbol, secondSymbol))
+            return;
+
+        state = BoardState.ProcessingMove;
+
+        DoSwap(firstSymbol, secondSymbol);
+
+        StartCoroutine(ProcessMatches(firstSymbol, secondSymbol));
+    }
+
+    private bool IsAdjacent(Symbol firstSymbol, Symbol secondSymbol)
+    {
+        return Mathf.Abs(firstSymbol.X - secondSymbol.X) + Mathf.Abs(firstSymbol.Y - secondSymbol.Y) == 1;
+    }
+
+    private void DoSwap(Symbol firstSymbol, Symbol secondSymbol)
+    {
+        Symbol temp = board[firstSymbol.X, firstSymbol.Y].symbol;
+
+        // swap symbols
+        board[firstSymbol.X, firstSymbol.Y].symbol = board[secondSymbol.X, secondSymbol.Y].symbol;
+        board[secondSymbol.X, secondSymbol.Y].symbol = temp;
+
+        // update indices
+        int tempX = firstSymbol.X;
+        int tempY = firstSymbol.Y;
+        firstSymbol.SetIndices(new Vector2Int(secondSymbol.X, secondSymbol.Y));
+        secondSymbol.SetIndices(new Vector2Int(tempX, tempY));
+
+        // move the symbols to their new position
+        var firstSymbolPos = board[firstSymbol.X, firstSymbol.Y].symbol.transform.position;
+        var secondSymbolPos = board[secondSymbol.X, secondSymbol.Y].symbol.transform.position;
+        firstSymbol.MoveToPosition(secondSymbolPos);
+        secondSymbol.MoveToPosition(firstSymbolPos);
+    }
+
+    private IEnumerator ProcessMatches(Symbol firstSymbol, Symbol secondSymbol)
+    {
+        // wait for the symbols to finish swapping their position
+        yield return new WaitForSeconds(symbolSwapDuration);
+
+        // if there was no match, move the symbols back to their starting tile
+        bool hasMatch = BoardContainsMatch();
+        if (!hasMatch)
+        {
+            DoSwap(firstSymbol, secondSymbol);
+        }
+
+        state = BoardState.Idle;
+    }
     #endregion
 }

@@ -10,5 +10,4 @@ public class ArrayLayout
 	}
 
 	public rowData[] rows = new rowData[8]; //creates a grid with a Y of 8, ultimately controlled by the CustPropertyDrawer.cs
-
 }
