@@ -37,6 +37,7 @@ public class Board : MonoBehaviour
     public int height = 8;
     public int maxTriesToGenerateBoard = 100;
     public float symbolSwapDuration = 0.2f;
+    public float extraConnectionMinLength = 2;
     public ArrayLayout arrayLayout;
 
     [Header("Debug")]
@@ -65,17 +66,19 @@ public class Board : MonoBehaviour
         int triesToGenerateBoard = 0;
         while (triesToGenerateBoard < maxTriesToGenerateBoard)
         {
+            // generate new board
+            ClearBoard();
             GenerateBoard();
-
-            // check for matches
-            // we want to find a board that has no matches
-            if (!BoardContainsMatch())
-                break;
-
-            Debug.Log("Found matches when generating the board, regenerating new board.");
             triesToGenerateBoard++;
 
-            ClearBoard();
+            // this board doesn't contain any match, stop generating
+            if (!BoardContainsMatch())
+            {
+                break;
+            }
+
+            // matches were found, regenerate
+            Debug.Log("Found matches when generating the board, regenerating new board.");
         }
     }
 
@@ -136,6 +139,7 @@ public class Board : MonoBehaviour
                     // spawn the symbol
                     Vector2 spawnPosition = new(x - spacingX, y - spacingY);
                     Symbol symbolInstance = SpawnSymbol(new Vector2Int(x, y), spawnPosition, symbolPrefab);
+                    symbolInstance.gameObject.name = symbolPrefab.name;
 
                     // create a new tile in the board for this symbol
                     board[x, y] = new Tile(true, symbolInstance);
@@ -185,12 +189,20 @@ public class Board : MonoBehaviour
                     continue;
 
                 // run some matching logic
-                MatchResult matchResult = IsConnected(symbol);
+                MatchResult matchResult = CheckForMatch(symbol);
 
                 // we found a match
                 if (matchResult.connectedSymbols.Count >= 3)
                 {
-                    // TOOD: complex matching (supers etc.)
+                    // check for complex matching (supers etc.)
+                    MatchResult superMatchResult = CheckForSuperMatch(matchResult);
+
+                    // we found a super match
+                    if (superMatchResult != null)
+                    {
+                        // replace the match result with the super match
+                        matchResult = superMatchResult;
+                    }
 
                     // add the connected symbols to the list of symbols to consume
                     symbolsToRemove.AddRange(matchResult.connectedSymbols);
@@ -207,7 +219,8 @@ public class Board : MonoBehaviour
         return hasMatched;
     }
 
-    private MatchResult IsConnected(Symbol symbol)
+
+    private MatchResult CheckForMatch(Symbol symbol)
     {
         List<Symbol> connectedSymbols = new();
         SymbolType symbolType = symbol.Type;
@@ -274,6 +287,69 @@ public class Board : MonoBehaviour
             connectedSymbols = connectedSymbols,
             direction = MatchDirection.None
         };
+    }
+
+    private MatchResult CheckForSuperMatch(MatchResult matchResult)
+    {
+        // if we have a horizontal or long horizontal match
+        if (matchResult.direction == MatchDirection.Horizontal || matchResult.direction == MatchDirection.LongHorizontal)
+        {
+            foreach (Symbol symbol in matchResult.connectedSymbols)
+            {
+                // check for another connection vertically
+                List<Symbol> extraConnectedSymbols = new();
+                CheckDirection(symbol, Vector2Int.up, extraConnectedSymbols);
+                CheckDirection(symbol, Vector2Int.down, extraConnectedSymbols);
+
+                // found an extra connection
+                if (extraConnectedSymbols.Count >= extraConnectionMinLength)
+                {
+                    Debug.Log("Super horizontal match");
+
+                    // add original matched symbols
+                    extraConnectedSymbols.AddRange(matchResult.connectedSymbols);
+
+                    return new MatchResult
+                    {
+                        connectedSymbols = extraConnectedSymbols,
+                        direction = MatchDirection.Super
+                    };
+                }
+            }
+
+            // did not find any extra connection
+            return null;
+        }
+        // if we have a vertical or long vertical match
+        else if (matchResult.direction == MatchDirection.Vertical || matchResult.direction == MatchDirection.LongVertical)
+        {
+            foreach (Symbol symbol in matchResult.connectedSymbols)
+            {
+                // check for another connection horizontally
+                List<Symbol> extraConnectedSymbols = new();
+                CheckDirection(symbol, Vector2Int.left, extraConnectedSymbols);
+                CheckDirection(symbol, Vector2Int.right, extraConnectedSymbols);
+
+                // found an extra connection
+                if (extraConnectedSymbols.Count >= extraConnectionMinLength)
+                {
+                    Debug.Log("Super vertical match");
+
+                    // add original matched symbols
+                    extraConnectedSymbols.AddRange(matchResult.connectedSymbols);
+
+                    return new MatchResult
+                    {
+                        connectedSymbols = extraConnectedSymbols,
+                        direction = MatchDirection.Super
+                    };
+                }
+            }
+
+            // did not find any extra connection
+            return null;
+        }
+        return null;
     }
 
     private void CheckDirection(Symbol symbol, Vector2Int direction, List<Symbol> connectedSymbols)
