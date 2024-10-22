@@ -5,22 +5,22 @@ public class Symbol : MonoBehaviour
 {
     [Header("Settings")]
     [SerializeField] private SymbolType type;
-    
-    private int x;
-    private int y;
-    private bool isMatched;
-    private bool isMoving;
+
+    [Header("Debug")]
+    [SerializeField, ReadOnly] private int x;
+    [SerializeField, ReadOnly] private int y;
+    [SerializeField, ReadOnly] private bool isMatched;
+    [SerializeField, ReadOnly] private bool isMoving;
     
     public int X => x;
     public int Y => y;
     public bool IsMatched => isMatched;
     public bool IsMoving => isMoving;
     public SymbolType Type => type;
+    public Vector2Int GetIndices() => new(x, y);
     
     private Vector2 currentPos;
     private Vector2 targetPos;
-
-    // TODO: Initialize by updating icon etc..
 
     public void SetIndices(Vector2Int indices)
     {

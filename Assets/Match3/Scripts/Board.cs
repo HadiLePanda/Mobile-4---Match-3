@@ -37,17 +37,18 @@ public class Board : MonoBehaviour
     public int height = 8;
     public int maxTriesToGenerateBoard = 100;
     public float symbolSwapDuration = 0.2f;
+    public float delayBetweenMatchProcessing = 0.4f;
     public float extraConnectionMinLength = 2;
     public ArrayLayout arrayLayout;
 
     [Header("Debug")]
     [SerializeField, ReadOnly] private  BoardState state;
     [SerializeField, ReadOnly] private Symbol selectedSymbol;
+    [SerializeField, ReadOnly] private List<Symbol> symbolsThatMatched = new();
 
     private Tile[,] board;
     private float spacingX;
     private float spacingY;
-
 
     public BoardState State => state;
 
@@ -108,6 +109,28 @@ public class Board : MonoBehaviour
     #region BOARD
     private void ClearBoard()
     {
+        // destroy existing symbols
+        DestroyAllSymbols();
+
+        // if the board doesn't exist yet no need to clear
+        if (board == null)
+            return;
+
+        // remove all the symbols from all tiles
+        foreach (Tile tile in board)
+        {
+            if (!tile.IsEmpty())
+            {
+                // remove the symbol from its tile
+                Symbol symbolToRemove = tile.symbol;
+                Vector2Int symbolTileIndices = symbolToRemove.GetIndices();
+                RemoveSymbolAt(symbolTileIndices);
+            }
+        }
+    }
+
+    private void DestroyAllSymbols()
+    {
         // destroy all the spawned symbols
         // all the spawned symbols are under the symbols parent
         foreach (Transform symbol in symbolsParent)
@@ -121,30 +144,29 @@ public class Board : MonoBehaviour
         
         // calculate spacing between tiles
         spacingX = (float)(width - 1) / 2;
-        spacingY = (float)(height - 1) / 2;
+        spacingY = (float)(height - 1) / 2 + 1;
 
         // generate symbols inside the board
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
             {
-                // spawn symbol in usable tiles
+                // generate usable tiles
                 // (unticked in inspector)
                 if (arrayLayout.rows[y].row[x] == false)
                 {
-                    // choose a random symbol
-                    int randomIndex = Random.Range(0, symbolPrefabs.Length);
-                    Symbol symbolPrefab = symbolPrefabs[randomIndex];
+                    // get random symbol
+                    Symbol symbolPrefab = GetRandomSymbol();
 
                     // spawn the symbol
+                    Vector2Int symbolIndices = new(x, y);
                     Vector2 spawnPosition = new(x - spacingX, y - spacingY);
-                    Symbol symbolInstance = SpawnSymbol(new Vector2Int(x, y), spawnPosition, symbolPrefab);
-                    symbolInstance.gameObject.name = symbolPrefab.name;
+                    Symbol symbolInstance = SpawnSymbol(symbolIndices, spawnPosition, symbolPrefab);
 
                     // create a new tile in the board for this symbol
                     board[x, y] = new Tile(true, symbolInstance);
                 }
-                // create unusable tiles
+                // generate unusable tiles
                 // (ticked in inspector)
                 else
                 {
@@ -156,23 +178,41 @@ public class Board : MonoBehaviour
         Debug.Log("Generated new board.");
     }
 
+    private Symbol GetRandomSymbol()
+    {
+        int randomIndex = Random.Range(0, symbolPrefabs.Length);
+        Symbol symbolPrefab = symbolPrefabs[randomIndex];
+        return symbolPrefab;
+    }
+
     private Symbol SpawnSymbol(Vector2Int indices, Vector2 spawnPosition, Symbol symbolPrefab)
     {
         Symbol symbolInstance = Instantiate(symbolPrefab, spawnPosition, Quaternion.identity);
-        symbolInstance.transform.SetParent(symbolsParent, false);
+        symbolInstance.gameObject.name = symbolPrefab.name;
+        symbolInstance.transform.SetParent(symbolsParent);
         symbolInstance.SetIndices(indices);
         return symbolInstance;
     }
     #endregion
 
-    #region CHECKING
+    #region MATCHING
     public bool BoardContainsMatch()
     {
         Debug.Log("Checking for matches...");
-
         bool hasMatched = false;
 
-        List<Symbol> symbolsToRemove = new();
+        // clear the matched flag for all tiles
+        foreach (Tile tile in board)
+        {
+            if (!tile.IsEmpty())
+                tile.symbol.SetIsMatched(false);
+        }
+
+        // clear the list of symbols that matched
+        // so we can get a new clean list
+        symbolsThatMatched.Clear();
+
+        // check for matches
         for (int x = 0; x < width; x++)
         {
             for(int y = 0; y < height; y++)
@@ -183,6 +223,10 @@ public class Board : MonoBehaviour
 
                 // get the symbol in this tile
                 Symbol symbol = board[x, y].symbol;
+
+                // check if it's a valid symbol
+                if (symbol == null)
+                    continue;
 
                 // check if it's not already matched
                 if (symbol.IsMatched)
@@ -205,7 +249,7 @@ public class Board : MonoBehaviour
                     }
 
                     // add the connected symbols to the list of symbols to consume
-                    symbolsToRemove.AddRange(matchResult.connectedSymbols);
+                    symbolsThatMatched.AddRange(matchResult.connectedSymbols);
 
                     // mark connected symbols as matched to avoid using them again for matching logic
                     foreach (Symbol connectedSymbol in matchResult.connectedSymbols)
@@ -219,6 +263,33 @@ public class Board : MonoBehaviour
         return hasMatched;
     }
 
+    public IEnumerator ProcessTurnWithMatch(bool subtractMoves)
+    {
+        // set match flag to false on the symbols we're about the remove
+        foreach (Symbol symbolThatMatched in symbolsThatMatched)
+            symbolThatMatched.SetIsMatched(false);
+
+        // remove the matched symbols and refill them
+        RemoveAndRefill(symbolsThatMatched);
+
+        // process the turn in game manager // TODO clarify intention
+        // TODO: GameManager.Instance.ProcessTurn(symbolsThatMatched.Count, subtractMoves);
+
+        // wait for a delay before processing another match
+        yield return new WaitForSeconds(delayBetweenMatchProcessing);
+
+        // is there another match that was found after refilling symbols?
+        if (BoardContainsMatch())
+        {
+            // process the turn once again (chain reaction), but without consuming a move
+            StartCoroutine(ProcessTurnWithMatch(subtractMoves: false));
+        }
+        // no more matches found, go back to idle state
+        else
+        {
+            state = BoardState.Idle;
+        }
+    }
 
     private MatchResult CheckForMatch(Symbol symbol)
     {
@@ -371,6 +442,11 @@ public class Board : MonoBehaviour
             // get the neighbour symbol
             Symbol neighbourSymbol = board[x, y].symbol;
 
+            // is it a valid symbol?
+            // if it's a null symbol it means it has been deleted, don't check
+            if (neighbourSymbol == null)
+                break;
+
             // do the symbol type match?
             // and is not already matched?
             if (neighbourSymbol.IsMatched || neighbourSymbol.Type != symbolType)
@@ -384,7 +460,126 @@ public class Board : MonoBehaviour
             y += direction.y;
         }
     }
+    #endregion
 
+    #region CASCADING
+    private void RemoveAndRefill(List<Symbol> symbolsToRemove)
+    {
+        // remove symbols and clear the tiles there were at
+        foreach (Symbol symbolToRemove in symbolsToRemove)
+        {
+            // get symbol tile indices
+            Vector2Int symbolIndices = symbolToRemove.GetIndices();
+
+            // destroy the symbol
+            Destroy(symbolToRemove.gameObject);
+
+            // empty the tile where the symbol was
+            board[symbolIndices.x, symbolIndices.y] = new Tile(true, null);
+
+            // TODO: RemoveSymbolAt(symbolIndices);
+        }
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                // the tile isn't empty, don't refill
+                if (!board[x, y].IsEmpty())
+                    continue;
+
+                // it's an empty tile, refill it
+                Vector2Int tileIndices = new(x, y);
+                RefillTile(tileIndices);
+            }
+        }
+    }
+
+    private void RemoveSymbolAt(Vector2Int indices)
+    {
+        // get the symbol
+        Symbol symbolToRemove = board[indices.x, indices.y].symbol;
+
+        // clear the matched flag just in case
+        //symbolToRemove.SetIsMatched(false);
+
+        // destroy the symbol
+        Destroy(symbolToRemove.gameObject);
+
+        // empty the tile where the symbol was
+        board[indices.x, indices.y] = new Tile(true, null);
+    }
+
+    private void RefillTile(Vector2Int tileIndices)
+    {
+        int x = tileIndices.x;
+        int y = tileIndices.y;
+
+        // get the firt symbol above that is not empty
+        int yOffset = 1;
+        while (y + yOffset < height && board[x, y + yOffset].IsEmpty())
+        {
+            yOffset++;
+        }
+
+        int firstNonEmptyY = y + yOffset;
+
+        // we found a symbol
+        if (firstNonEmptyY < height && !board[x, firstNonEmptyY].IsEmpty())
+        {
+            // get the symbol
+            Symbol symbolAbove = board[x, firstNonEmptyY].symbol;
+
+            // move the symbol to the correct location
+            Vector2 targetPos = new(x - spacingX, y - spacingY);
+            symbolAbove.MoveToPosition(targetPos);
+            // update the symbol indices
+            symbolAbove.SetIndices(tileIndices);
+
+            // replace the empty tile with the symbol
+            board[x, y] = board[x, firstNonEmptyY];
+
+            // empty the tile where the symbol was
+            board[x, firstNonEmptyY] = new Tile(true, null);
+        }
+        // we've hit the top of the board without finding a symbol
+        else if (firstNonEmptyY == height)
+        {
+            SpawnSymbolAtTop(x);
+        }
+    }
+
+    private void SpawnSymbolAtTop(int x)
+    {
+        int lowestEmptyTileY = FindLowestEmptyTileY(x);
+        int yToMoveTo = height - lowestEmptyTileY;
+
+        // get a random symbol
+        Symbol randomSymbolPrefab = GetRandomSymbol();
+
+        // spawn symbol
+        Vector2Int symbolIndices = new(x, lowestEmptyTileY);
+        Vector2 spawnPos = new(x - spacingX, height - spacingY);
+        Symbol symbolInstance = SpawnSymbol(symbolIndices, spawnPos, randomSymbolPrefab);
+
+        // update the tile where the symbol spawned at
+        board[symbolIndices.x, symbolIndices.y] = new Tile(true, symbolInstance);
+
+        // move the symbol to the new location
+        Vector2 targetPosition = new(symbolInstance.transform.position.x, symbolInstance.transform.position.y - yToMoveTo);
+        symbolInstance.MoveToPosition(targetPosition);
+    }
+
+    private int FindLowestEmptyTileY(int x)
+    {
+        int lowestEmptyTileY = 99;
+        for (int y = (height - 1); y >= 0; y--)
+        {
+            if (board[x, y].IsEmpty())
+                lowestEmptyTileY = y;
+        }
+        return lowestEmptyTileY;
+    }
     #endregion
 
     #region SWAPPING
@@ -404,8 +599,7 @@ public class Board : MonoBehaviour
         // if we selected a different symbol while we have a symbol selected, swap them
         else if (selectedSymbol != symbol)
         {
-            SwapSymbol(selectedSymbol, symbol);
-
+            TrySwapSymbols(selectedSymbol, symbol);
             DeselectCurrentSymbol();
         }
     }
@@ -413,7 +607,7 @@ public class Board : MonoBehaviour
     private void SelectSymbol(Symbol symbol) => selectedSymbol = symbol;
     private void DeselectCurrentSymbol() => selectedSymbol = null;
 
-    private void SwapSymbol(Symbol firstSymbol, Symbol secondSymbol)
+    private void TrySwapSymbols(Symbol firstSymbol, Symbol secondSymbol)
     {
         // check if the symbols are adjacent to eachother
         if (!IsAdjacent(firstSymbol, secondSymbol))
@@ -421,9 +615,8 @@ public class Board : MonoBehaviour
 
         state = BoardState.ProcessingMove;
 
-        DoSwap(firstSymbol, secondSymbol);
-
-        StartCoroutine(ProcessMatches(firstSymbol, secondSymbol));
+        SwapSymbols(firstSymbol, secondSymbol);
+        StartCoroutine(ProcessMatchesAfterSwap(firstSymbol, secondSymbol));
     }
 
     private bool IsAdjacent(Symbol firstSymbol, Symbol secondSymbol)
@@ -431,7 +624,7 @@ public class Board : MonoBehaviour
         return Mathf.Abs(firstSymbol.X - secondSymbol.X) + Mathf.Abs(firstSymbol.Y - secondSymbol.Y) == 1;
     }
 
-    private void DoSwap(Symbol firstSymbol, Symbol secondSymbol)
+    private void SwapSymbols(Symbol firstSymbol, Symbol secondSymbol)
     {
         Symbol temp = board[firstSymbol.X, firstSymbol.Y].symbol;
 
@@ -446,25 +639,31 @@ public class Board : MonoBehaviour
         secondSymbol.SetIndices(new Vector2Int(tempX, tempY));
 
         // move the symbols to their new position
-        var firstSymbolPos = board[firstSymbol.X, firstSymbol.Y].symbol.transform.position;
-        var secondSymbolPos = board[secondSymbol.X, secondSymbol.Y].symbol.transform.position;
+        Vector3 firstSymbolPos = board[firstSymbol.X, firstSymbol.Y].symbol.transform.position;
+        Vector3 secondSymbolPos = board[secondSymbol.X, secondSymbol.Y].symbol.transform.position;
         firstSymbol.MoveToPosition(secondSymbolPos);
         secondSymbol.MoveToPosition(firstSymbolPos);
     }
 
-    private IEnumerator ProcessMatches(Symbol firstSymbol, Symbol secondSymbol)
+    private IEnumerator ProcessMatchesAfterSwap(Symbol firstSymbol, Symbol secondSymbol)
     {
         // wait for the symbols to finish swapping their position
         yield return new WaitForSeconds(symbolSwapDuration);
 
-        // if there was no match, move the symbols back to their starting tile
-        bool hasMatch = BoardContainsMatch();
-        if (!hasMatch)
+        // if a match was found, process it
+        if (BoardContainsMatch())
         {
-            DoSwap(firstSymbol, secondSymbol);
+            StartCoroutine(ProcessTurnWithMatch(true));
         }
+        // if there was no match, move the symbols back to their starting tile
+        else
+        {
+            // swap the symbols back to their original tiles
+            SwapSymbols(firstSymbol, secondSymbol);
 
-        state = BoardState.Idle;
+            // go back to idle state
+            state = BoardState.Idle;
+        }
     }
     #endregion
 }

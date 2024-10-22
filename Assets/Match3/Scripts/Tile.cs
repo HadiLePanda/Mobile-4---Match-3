@@ -8,4 +8,6 @@ public class Tile
         this.isUsable = isUsable;
         this.symbol = symbol;
     }
+
+    public bool IsEmpty() => symbol == null;
 }
