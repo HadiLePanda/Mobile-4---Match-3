@@ -52,7 +52,7 @@ public class Board : MonoBehaviour
 
     public BoardState State => state;
 
-    public static Board Instance;
+    public static Board Instance { get; private set; }
 
     private void Awake()
     {
@@ -61,8 +61,16 @@ public class Board : MonoBehaviour
 
     private void Start()
     {
-        state = BoardState.Idle;
+        InitializeBoard();
+    }
 
+    public void InitializeBoard()
+    {
+        state = BoardState.Idle;
+    }
+
+    public void CreateBoardWithNoMatches()
+    {
         // try to generate a board with no matches on start
         int triesToGenerateBoard = 0;
         while (triesToGenerateBoard < maxTriesToGenerateBoard)
@@ -85,7 +93,11 @@ public class Board : MonoBehaviour
 
     private void Update()
     {
-        // detect player click
+        // run logic only while in playing state
+        if (GameManager.Instance.State != GameState.Playing)
+            return;
+
+        // detected player click
         if (Input.GetMouseButtonDown(0))
         {
             // send a raycast
@@ -96,6 +108,7 @@ public class Board : MonoBehaviour
             if (hit.collider != null && hit.collider.GetComponentInParent<Symbol>())
             {
                 // we're in the process of moving tiles around, so don't do anything
+                // TODO: add selection queue?
                 if (state == BoardState.ProcessingMove)
                     return;
 
