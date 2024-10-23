@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28dabdf549da9f14aa4e6a1750f35554, type: 3}
+  m_Name: Stage 1
+  m_EditorClassIdentifier: 
+  backgroundPrefab: {fileID: 0}
+  stageSymbols:
+  - {fileID: 11400000, guid: 37c0f93da39550a47a0a24b82f1b9af7, type: 2}
+  - {fileID: 11400000, guid: 2f17136e816bfe540ba9934975acc634, type: 2}
+  - {fileID: 11400000, guid: 49175fc2f6ba4594baa5f9c750aaace1, type: 2}
+  - {fileID: 11400000, guid: 550e60989b6f1f3499d2cc93628da7a8, type: 2}
+  boardWidth: 6
+  boardHeight: 8
+  requiredScoreToWin: 1000
+  maxMoves: 30

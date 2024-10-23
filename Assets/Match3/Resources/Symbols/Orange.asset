@@ -10,7 +10,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 27b99925f53148969a67c94431f0024a, type: 3}
-  m_Name: Red
+  m_Name: Orange
   m_EditorClassIdentifier: 
-  PointMultiplier: 2
-  Color: {r: 1, g: 0, b: 0, a: 1}
+  sprite: {fileID: 21300000, guid: 5b0c287fddf11b24d910a6b285ee1807, type: 3}
+  scoreValue: 10
+  color: {r: 1, g: 0.5464046, b: 0, a: 1}

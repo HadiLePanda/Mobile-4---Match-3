@@ -1,8 +1,10 @@
 ﻿using UnityEngine;
 
-[CreateAssetMenu(fileName = "New Symbol Type", menuName = "Panda/Symbols/Create Symbol Type")]
-public class SymbolType: ScriptableObject
+[CreateAssetMenu(fileName = "New Symbol", menuName = "Panda/Symbols/New Symbol")]
+public class SymbolData: ScriptableObject
 {
-    public float PointMultiplier = 1f;
-    public Color Color = Color.white;
+    [Header("Base Data")]
+    public Sprite sprite;
+    public int scoreValue = 10;
+    public Color color = Color.white;
 }

@@ -1,10 +1,14 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using UnityEngine;
 
 public class Symbol : MonoBehaviour
 {
+    [Header("References")]
+    [SerializeField] private SpriteRenderer spriteRenderer;
+
     [Header("Settings")]
-    [SerializeField] private SymbolType type;
+    [SerializeField] private SymbolData data;
 
     [Header("Debug")]
     [SerializeField, ReadOnly] private int x;
@@ -16,11 +20,13 @@ public class Symbol : MonoBehaviour
     public int Y => y;
     public bool IsMatched => isMatched;
     public bool IsMoving => isMoving;
-    public SymbolType Type => type;
+    public SymbolData Data => data;
     public Vector2Int GetIndices() => new(x, y);
     
     private Vector2 currentPos;
     private Vector2 targetPos;
+
+    public static Action onSymbolChanged;
 
     public void SetIndices(Vector2Int indices)
     {
@@ -29,6 +35,11 @@ public class Symbol : MonoBehaviour
     }
     public void SetIsMatched(bool isMatched) => this.isMatched = isMatched;
     public void SetIsMoving(bool isMoving) => this.isMoving = isMoving;
+    public void SetData(SymbolData symbolData)
+    {
+        data = symbolData;
+        spriteRenderer.sprite = symbolData.sprite;
+    }
 
     // MOVEMENT
     public void MoveToPosition(Vector2 targetPos)
@@ -55,4 +66,5 @@ public class Symbol : MonoBehaviour
         transform.position = targetPos;
         isMoving = false;
     }
+
 }

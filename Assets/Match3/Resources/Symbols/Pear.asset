@@ -10,7 +10,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 27b99925f53148969a67c94431f0024a, type: 3}
-  m_Name: Yellow
+  m_Name: Pear
   m_EditorClassIdentifier: 
-  PointMultiplier: 1.6
-  Color: {r: 1, g: 0.89232874, b: 0, a: 1}
+  sprite: {fileID: 21300000, guid: 50dd2e8acaa7426438d693e39eb73026, type: 3}
+  scoreValue: 10
+  color: {r: 0.06748631, g: 0.8490566, b: 0.020024916, a: 1}

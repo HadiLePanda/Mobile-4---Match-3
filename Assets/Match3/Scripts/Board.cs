@@ -28,7 +28,7 @@ public enum BoardState
 public class Board : MonoBehaviour
 {
     [Header("References")]
-    public Symbol[] symbolPrefabs;
+    public Symbol symbolPrefab;
     public Transform symbolsParent;
     public GameObject boardObject;
 
@@ -39,12 +39,15 @@ public class Board : MonoBehaviour
     public float symbolSwapDuration = 0.2f;
     public float delayBetweenMatchProcessing = 0.4f;
     public float extraConnectionMinLength = 2;
+    public float threeMatchMultiplier = 1f;
+    public float longMatchMultiplier = 1.5f;
     public ArrayLayout arrayLayout;
 
     [Header("Debug")]
-    [SerializeField, ReadOnly] private  BoardState state;
+    [SerializeField, ReadOnly] private BoardState state;
     [SerializeField, ReadOnly] private Symbol selectedSymbol;
     [SerializeField, ReadOnly] private List<Symbol> symbolsThatMatched = new();
+    [SerializeField, ReadOnly] private int cascadeChainCount = 0;
 
     private Tile[,] board;
     private float spacingX;
@@ -93,6 +96,8 @@ public class Board : MonoBehaviour
 
     private void Update()
     {
+        // TODO: convert to swapping, and refactor to input script
+
         // run logic only while in playing state
         if (GameManager.Instance.State != GameState.Playing)
             return;
@@ -169,12 +174,12 @@ public class Board : MonoBehaviour
                 if (arrayLayout.rows[y].row[x] == false)
                 {
                     // get random symbol
-                    Symbol symbolPrefab = GetRandomSymbol();
+                    SymbolData symbolData = GetRandomSymbol();
 
                     // spawn the symbol
                     Vector2Int symbolIndices = new(x, y);
                     Vector2 spawnPosition = new(x - spacingX, y - spacingY);
-                    Symbol symbolInstance = SpawnSymbol(symbolIndices, spawnPosition, symbolPrefab);
+                    Symbol symbolInstance = SpawnSymbol(symbolIndices, spawnPosition, symbolData);
 
                     // create a new tile in the board for this symbol
                     board[x, y] = new Tile(true, symbolInstance);
@@ -191,19 +196,21 @@ public class Board : MonoBehaviour
         Debug.Log("Generated new board.");
     }
 
-    private Symbol GetRandomSymbol()
+    private SymbolData GetRandomSymbol()
     {
-        int randomIndex = Random.Range(0, symbolPrefabs.Length);
-        Symbol symbolPrefab = symbolPrefabs[randomIndex];
-        return symbolPrefab;
+        // pick a symbol among the current stage's list of symbols
+        var stageSymbols = GameManager.Instance.GetCurrentStage().stageSymbols;
+        int randomIndex = Random.Range(0, stageSymbols.Length);
+        return stageSymbols[randomIndex];
     }
 
-    private Symbol SpawnSymbol(Vector2Int indices, Vector2 spawnPosition, Symbol symbolPrefab)
+    private Symbol SpawnSymbol(Vector2Int indices, Vector2 spawnPosition, SymbolData symbolData)
     {
         Symbol symbolInstance = Instantiate(symbolPrefab, spawnPosition, Quaternion.identity);
-        symbolInstance.gameObject.name = symbolPrefab.name;
-        symbolInstance.transform.SetParent(symbolsParent);
+        symbolInstance.SetData(symbolData);
         symbolInstance.SetIndices(indices);
+        symbolInstance.gameObject.name = symbolData.name;
+        symbolInstance.transform.SetParent(symbolsParent);
         return symbolInstance;
     }
     #endregion
@@ -276,7 +283,7 @@ public class Board : MonoBehaviour
         return hasMatched;
     }
 
-    public IEnumerator ProcessTurnWithMatch(bool subtractMoves)
+    public IEnumerator ProcessTurnWithMatch(bool consumeMove)
     {
         // set match flag to false on the symbols we're about the remove
         foreach (Symbol symbolThatMatched in symbolsThatMatched)
@@ -285,29 +292,68 @@ public class Board : MonoBehaviour
         // remove the matched symbols and refill them
         RemoveAndRefill(symbolsThatMatched);
 
-        // process the turn in game manager // TODO clarify intention
-        // TODO: GameManager.Instance.ProcessTurn(symbolsThatMatched.Count, subtractMoves);
+        // process the turn in game manager
+        // note: in case we end up in game over or win state, the manager logic won't execute
+        //       so currently we don't need to worry about stopping the cascade logic.
+        if (GameManager.Instance.State == GameState.Playing)
+        {
+            int matchScore = CalculateMatchScore(symbolsThatMatched);
+            GameManager.Instance.ProcessTurn(matchScore, consumeMove);
+        }
 
         // wait for a delay before processing another match
         yield return new WaitForSeconds(delayBetweenMatchProcessing);
 
         // is there another match that was found after refilling symbols?
+        // trigger cascade logic
         if (BoardContainsMatch())
         {
-            // process the turn once again (chain reaction), but without consuming a move
-            StartCoroutine(ProcessTurnWithMatch(subtractMoves: false));
+            // increase cascade combo
+            cascadeChainCount += 1;
+
+            // process the turn once again (cascade), but without consuming a move
+            StartCoroutine(ProcessTurnWithMatch(consumeMove: false));
         }
         // no more matches found, go back to idle state
         else
         {
+            // reset cascade combo
+            cascadeChainCount = 0;
+
+            // clear stored matched symbols
+            symbolsThatMatched.Clear();
+
+            // the board goes back in idle state
             state = BoardState.Idle;
         }
+    }
+
+    private int CalculateMatchScore(List<Symbol> symbolsThatMatched)
+    {
+        // get the multiplier based on the number of symbols that matched
+        float matchLengthMultiplier = 1f;
+        if (symbolsThatMatched.Count == 3)
+            matchLengthMultiplier = threeMatchMultiplier;
+        else if (symbolsThatMatched.Count >= 4)
+            matchLengthMultiplier = longMatchMultiplier;
+
+        // get the cascade combo multiplier
+        float cascadeComboMultiplier = 1f + cascadeChainCount;
+
+        // get match score
+        // cumulate the symbols score values
+        SymbolData symbolType = symbolsThatMatched[0].Data;
+        int matchScore = symbolType.scoreValue * symbolsThatMatched.Count;
+
+        // calculate the final score for this match
+        int totalScore = Mathf.CeilToInt((matchScore * matchLengthMultiplier) * cascadeComboMultiplier);
+        return totalScore;
     }
 
     private MatchResult CheckForMatch(Symbol symbol)
     {
         List<Symbol> connectedSymbols = new();
-        SymbolType symbolType = symbol.Type;
+        SymbolData symbolType = symbol.Data;
 
         // read our initial symbol
         connectedSymbols.Add(symbol);
@@ -318,7 +364,7 @@ public class Board : MonoBehaviour
         // found horizontal match (3)
         if (connectedSymbols.Count == 3)
         {
-            Debug.Log($"Normal horizontal 3 match. Type: {connectedSymbols[0].Type.name}");
+            Debug.Log($"Normal horizontal 3 match. Type: {connectedSymbols[0].Data.name}");
             return new MatchResult
             {
                 connectedSymbols = connectedSymbols,
@@ -328,7 +374,7 @@ public class Board : MonoBehaviour
         // found long horizontal match (> 3)
         else if (connectedSymbols.Count > 3)
         {
-            Debug.Log($"Long horizontal match. Type: {connectedSymbols[0].Type.name}");
+            Debug.Log($"Long horizontal match. Type: {connectedSymbols[0].Data.name}");
             return new MatchResult
             {
                 connectedSymbols = connectedSymbols,
@@ -347,7 +393,7 @@ public class Board : MonoBehaviour
         // found vertical match (3)
         if (connectedSymbols.Count == 3)
         {
-            Debug.Log($"Normal vertical 3 match. Type: {connectedSymbols[0].Type.name}");
+            Debug.Log($"Normal vertical 3 match. Type: {connectedSymbols[0].Data.name}");
             return new MatchResult
             {
                 connectedSymbols = connectedSymbols,
@@ -357,7 +403,7 @@ public class Board : MonoBehaviour
         // found long vertical match (> 3)
         else if (connectedSymbols.Count > 3)
         {
-            Debug.Log($"Long vertical match. Type: {connectedSymbols[0].Type.name}");
+            Debug.Log($"Long vertical match. Type: {connectedSymbols[0].Data.name}");
             return new MatchResult
             {
                 connectedSymbols = connectedSymbols,
@@ -438,7 +484,7 @@ public class Board : MonoBehaviour
 
     private void CheckDirection(Symbol symbol, Vector2Int direction, List<Symbol> connectedSymbols)
     {
-        SymbolType symbolType = symbol.Type;
+        SymbolData symbolType = symbol.Data;
 
         int x = symbol.X + direction.x;
         int y = symbol.Y + direction.y;
@@ -462,7 +508,7 @@ public class Board : MonoBehaviour
 
             // do the symbol type match?
             // and is not already matched?
-            if (neighbourSymbol.IsMatched || neighbourSymbol.Type != symbolType)
+            if (neighbourSymbol.IsMatched || neighbourSymbol.Data != symbolType)
                 break;
 
             // it's a connected symbol
@@ -514,7 +560,7 @@ public class Board : MonoBehaviour
         Symbol symbolToRemove = board[indices.x, indices.y].symbol;
 
         // clear the matched flag just in case
-        //symbolToRemove.SetIsMatched(false);
+        symbolToRemove.SetIsMatched(false);
 
         // destroy the symbol
         Destroy(symbolToRemove.gameObject);
@@ -568,12 +614,12 @@ public class Board : MonoBehaviour
         int yToMoveTo = height - lowestEmptyTileY;
 
         // get a random symbol
-        Symbol randomSymbolPrefab = GetRandomSymbol();
+        SymbolData randomSymbolData = GetRandomSymbol();
 
         // spawn symbol
         Vector2Int symbolIndices = new(x, lowestEmptyTileY);
         Vector2 spawnPos = new(x - spacingX, height - spacingY);
-        Symbol symbolInstance = SpawnSymbol(symbolIndices, spawnPos, randomSymbolPrefab);
+        Symbol symbolInstance = SpawnSymbol(symbolIndices, spawnPos, randomSymbolData);
 
         // update the tile where the symbol spawned at
         board[symbolIndices.x, symbolIndices.y] = new Tile(true, symbolInstance);
