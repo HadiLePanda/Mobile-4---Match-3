@@ -129,15 +129,15 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
     private int GetUnusedMoves() => Mathf.Max(0, GetCurrentStage().maxMoves - movesRemaining);
     private void StageWin()
     {
-        state = GameState.Win;
-        onStageWin?.Invoke();
-
         // get the amount of unused moves
         int unusedMoves = GetUnusedMoves();
 
         // give bonus points for winning with extra moves remaining
         int extraMovesBonusScore = unusedMoves * extraMoveScoreValue;
         AddScore(extraMovesBonusScore);
+
+        state = GameState.Win;
+        onStageWin?.Invoke();
 
         // trigger win sequence
         StartCoroutine(StageWinSequence());
