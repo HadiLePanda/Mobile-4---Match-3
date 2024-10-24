@@ -126,16 +126,18 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
         StartCoroutine(GameOverSequence());
     }
 
+    private int GetUnusedMoves() => Mathf.Max(0, GetCurrentStage().maxMoves - movesRemaining);
     private void StageWin()
     {
         state = GameState.Win;
         onStageWin?.Invoke();
 
         // get the amount of unused moves
-        int unusedMoves = Mathf.Max(0, GetCurrentStage().maxMoves - movesRemaining);
+        int unusedMoves = GetUnusedMoves();
 
         // give bonus points for winning with extra moves remaining
         int extraMovesBonusScore = unusedMoves * extraMoveScoreValue;
+        AddScore(extraMovesBonusScore);
 
         // trigger win sequence
         StartCoroutine(StageWinSequence());
@@ -191,7 +193,6 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
 
         // enter loading state
         state = GameState.Loading;
-        Debug.Log("Loading Stage " + stageIndex);
 
         // load the game scene
         SceneManager.LoadScene(SCENE_GAME);
@@ -205,7 +206,6 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
         // enter playing state
         state = GameState.Playing;
         onStartStage?.Invoke();
-        Debug.Log("Started Stage " + stageIndex);
     }
 
     private void LoadStage(int stageIndex)

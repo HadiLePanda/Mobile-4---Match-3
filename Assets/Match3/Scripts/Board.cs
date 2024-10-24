@@ -104,7 +104,7 @@ public class Board : SingletonMonoBehaviour<Board>
             }
 
             // matches were found, regenerate
-            Debug.Log("Found matches when generating the board, regenerating new board.");
+            //Debug.Log("Found matches when generating the board, regenerating new board.");
         }
     }
 
@@ -209,7 +209,7 @@ public class Board : SingletonMonoBehaviour<Board>
             }
         }
 
-        Debug.Log("Generated new board.");
+        //Debug.Log("Generated new board.");
     }
 
     private SymbolData GetRandomSymbol()
@@ -234,7 +234,7 @@ public class Board : SingletonMonoBehaviour<Board>
     #region MATCHING
     public bool BoardContainsMatch()
     {
-        Debug.Log("Checking for matches...");
+        //Debug.Log("Checking for matches...");
         bool hasMatched = false;
 
         // clear the matched flag for all tiles
@@ -383,7 +383,7 @@ public class Board : SingletonMonoBehaviour<Board>
                 // found an extra connection
                 if (extraConnectedSymbols.Count >= extraConnectionMinLength)
                 {
-                    Debug.Log("Super horizontal match");
+                    //Debug.Log("Super horizontal match");
 
                     // add original matched symbols
                     extraConnectedSymbols.AddRange(matchResult.connectedSymbols);
@@ -412,7 +412,7 @@ public class Board : SingletonMonoBehaviour<Board>
                 // found an extra connection
                 if (extraConnectedSymbols.Count >= extraConnectionMinLength)
                 {
-                    Debug.Log("Super vertical match");
+                    //Debug.Log("Super vertical match");
 
                     // add original matched symbols
                     extraConnectedSymbols.AddRange(matchResult.connectedSymbols);

@@ -103,7 +103,7 @@ public class UIWindow : MonoBehaviour
 
     private void FinishedOpening()
     {
-        // turn visible for raycast interaction
+        // turn visble and enable raycast interaction
         canvasGroup.interactable = true;
         canvasGroup.blocksRaycasts = true;
         windowTransform.localScale = Vector3.one;
@@ -115,10 +115,10 @@ public class UIWindow : MonoBehaviour
         // turn off panel
         panel.SetActive(false);
 
-        // turn invisible for raycast interaction
+        // turn invisible and disable raycast interaction
         canvasGroup.interactable = false;
         canvasGroup.blocksRaycasts = false;
-        windowTransform.localScale = Vector3.one;
+        windowTransform.localScale = Vector3.zero;
 
         state = WindowState.Idle;
     }

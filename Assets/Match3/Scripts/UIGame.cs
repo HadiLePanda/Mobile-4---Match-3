@@ -32,7 +32,7 @@ public class UIGame : MonoBehaviour
     {
         scoreText.text = GameManager.Instance.Score.ToString();
         goalText.text = GameManager.Instance.ScoreToWin.ToString();
-        multiplierText.text = Board.Instance.GetCascadeComboMultiplier().ToString();
+        multiplierText.text = "x" + Board.Instance.GetCascadeComboMultiplier().ToString();
         movesRemaining.text = GameManager.Instance.MovesRemaining.ToString();
         pauseButton.interactable = GameManager.Instance.State == GameState.Playing;
         scoreSlider.value = GameManager.Instance.ScoreProgressPercent;
