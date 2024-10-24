@@ -12,13 +12,19 @@ public enum GameState
     GameOver
 }
 
-public class GameManager : MonoBehaviour
+public class GameManager : SingletonMonoBehaviour<GameManager>
 {
     public static readonly string SCENE_MAINMENU = "MainMenu";
     public static readonly string SCENE_GAME = "Game";
 
     [Header("References")]
     [SerializeField] private StageData[] stages;
+
+    [Header("Settings")]
+    [SerializeField] private float gameOverSequenceTime = 1f;
+    [SerializeField] private float gameWinSequenceTime = 1f;
+    [SerializeField] private float mainMenuMusicVolume = 0.7f;
+    [SerializeField] private int extraMoveScoreValue = 100;
 
     [Header("Debug")]
     [SerializeField, ReadOnly] private GameState state;
@@ -29,40 +35,47 @@ public class GameManager : MonoBehaviour
 
     public GameState State => state;
     public int Score => score;
+    public int ScoreToWin => stages[currentStageIndex].requiredScoreToWin;
+    public int MaxMoves => stages[currentStageIndex].maxMoves;
     public int MovesRemaining => movesRemaining;
-    public void SetScore(int newScore) => score = newScore;
-
-    public Action onStartStage, onStageWin, onGameOver;
-    public Action onScoreChanged;
-    public Action onStageWinSequenceFinished, onGameOverSequenceFinished;
-    public Action onStageLoaded;
-
-    public static GameManager Instance { get; private set; }
-
-    private void Awake()
+    public int CurrentStageIndex => currentStageIndex;
+    public float ScoreProgressPercent
     {
-        Instance = this;
+        get
+        {
+            if (scoreToWin <= 0)
+                return 0f;
+
+            return Mathf.Clamp01((float)score / (float)scoreToWin);
+        }
     }
 
-    private IEnumerator Start()
+    public void SetScore(int newScore) => score = newScore;
+    public void SetState(GameState newState) => state = newState;
+
+    public static Action onStartStage, onStageWin, onGameOver;
+    public static Action onScoreChanged;
+    public static Action onStageWinSequenceFinished, onGameOverSequenceFinished;
+    public static Action onStageLoaded;
+
+    protected override bool IsDontDestroyOnLoad() => true;
+
+    protected override void Init()
     {
         state = GameState.MainMenu;
 
         // TODO remove after adding proper stage selection
-        yield return new WaitForSeconds(0.5f);
-        PlayStage(0);
+        //yield return new WaitForSeconds(0.5f);
+        //PlayStage(0);
     }
 
     #region GAME LOGIC
-    public void ProcessTurn(int scoreGained, bool consumeMove)
+    public void ProcessTurn(bool consumeMove = true)
     {
         if (state != GameState.Playing)
             return;
 
-        // increase score
-        AddScore(scoreGained);
-
-        // consume a move this turn cost one
+        // consume a move for playing this turn
         if (consumeMove &&
             movesRemaining > 0)
         {
@@ -81,7 +94,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void ConsumeMove()
+    public void ConsumeMove()
     {
         movesRemaining = Mathf.Max(0, movesRemaining - 1);
     }
@@ -92,30 +105,16 @@ public class GameManager : MonoBehaviour
     {
         state = GameState.Loading;
 
+        // stop music
+        MusicManager.Instance.StopMusic();
+
+        // load main menu scene
         SceneManager.LoadScene(SCENE_MAINMENU);
 
         state = GameState.MainMenu;
-    }
 
-    public void PlayStage(int stageIndex)
-    {
-        // TODO: add transition screen while loading scene
-
-        state = GameState.Loading;
-        Debug.Log("Loading Stage " + stageIndex);
-
-        // load the game scene
-        //SceneManager.LoadScene(SCENE_GAME);
-
-        // load the stage
-        LoadStage(stageIndex);
-
-        // generate board
-        Board.Instance.CreateBoardWithNoMatches();
-
-        state = GameState.Playing;
-        onStartStage?.Invoke();
-        Debug.Log("Started Stage " + stageIndex);
+        // play menu music
+        MusicManager.Instance.PlayMusic(MusicManager.Instance.menuMusic, mainMenuMusicVolume);
     }
 
     public void GameOver()
@@ -132,6 +131,12 @@ public class GameManager : MonoBehaviour
         state = GameState.Win;
         onStageWin?.Invoke();
 
+        // get the amount of unused moves
+        int unusedMoves = Mathf.Max(0, GetCurrentStage().maxMoves - movesRemaining);
+
+        // give bonus points for winning with extra moves remaining
+        int extraMovesBonusScore = unusedMoves * extraMoveScoreValue;
+
         // trigger win sequence
         StartCoroutine(StageWinSequence());
     }
@@ -139,22 +144,26 @@ public class GameManager : MonoBehaviour
     private IEnumerator GameOverSequence()
     {
         Debug.Log("Game over!");
+
         // TODO: play game over effects
+        // TODO: lower volume
 
-        yield return null;
+        yield return new WaitForSeconds(gameOverSequenceTime);
 
-        // TODO: show game over panel
+        // trigger event to show game over popup
         onGameOverSequenceFinished?.Invoke();
     }
 
     private IEnumerator StageWinSequence()
     {
         Debug.Log("Stage won!");
+
         // TODO: play game win effects
+        // TODO: lower volume
 
-        yield return null;
+        yield return new WaitForSeconds(gameWinSequenceTime);
 
-        // TODO: show stage win panel
+        // trigger event toshow stage win popup
         onStageWinSequenceFinished?.Invoke();
     }
     #endregion
@@ -162,37 +171,62 @@ public class GameManager : MonoBehaviour
     #region STAGES
     public StageData GetCurrentStage() => stages[currentStageIndex];
 
-    public void LoadStage(int stageIndex)
+    public void ReplayStage()
+    {
+        // TODO: do extra logic before restarting the level and stage
+        PlayStage(currentStageIndex);
+    }
+    public void PlayFirstStage()
+    {
+        PlayStage(0);
+    }
+    public void PlayNextStage()
+    {
+        PlayStage(currentStageIndex + 1);
+    }
+
+    public void PlayStage(int stageIndex)
+    {
+        // TODO: add transition screen while loading scene
+
+        // enter loading state
+        state = GameState.Loading;
+        Debug.Log("Loading Stage " + stageIndex);
+
+        // load the game scene
+        SceneManager.LoadScene(SCENE_GAME);
+
+        // load the stage
+        LoadStage(stageIndex);
+
+        // play gameplay music
+        MusicManager.Instance.PlayMusic(MusicManager.Instance.gameMusic);
+
+        // enter playing state
+        state = GameState.Playing;
+        onStartStage?.Invoke();
+        Debug.Log("Started Stage " + stageIndex);
+    }
+
+    private void LoadStage(int stageIndex)
     {
         if (stageIndex > stages.Length - 1)
             return;
 
+        // update stage reference
         currentStageIndex = stageIndex;
         var stage = stages[stageIndex];
-        InitializeStage(stage);
 
-        onStageLoaded?.Invoke();
-    }
-    public void InitializeStage(StageData stage)
-    {
         // initialize stage data
         score = 0;
         movesRemaining = stage.maxMoves;
         scoreToWin = stage.requiredScoreToWin;
 
         // TODO: spawn stage background
-    }
-    public void LoadFirstStage()
-    {
-        LoadStage(0);
-    }
-    public void LoadNextStage()
-    {
-        LoadStage(currentStageIndex + 1);
-    }
-    public void RestartStage()
-    {
-        LoadStage(currentStageIndex);
+
+        // note: board is loaded when starting the stage scene
+
+        onStageLoaded?.Invoke();
     }
     #endregion
 

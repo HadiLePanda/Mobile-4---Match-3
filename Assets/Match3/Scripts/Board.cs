@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using Random = UnityEngine.Random;
 
 public class MatchResult
@@ -25,7 +26,7 @@ public enum BoardState
     ProcessingMove
 }
 
-public class Board : MonoBehaviour
+public class Board : SingletonMonoBehaviour<Board>
 {
     [Header("References")]
     public Symbol symbolPrefab;
@@ -41,6 +42,7 @@ public class Board : MonoBehaviour
     public float extraConnectionMinLength = 2;
     public float threeMatchMultiplier = 1f;
     public float longMatchMultiplier = 1.5f;
+    public int cascadeMaxChain = 3;
     public ArrayLayout arrayLayout;
 
     [Header("Debug")]
@@ -55,21 +57,33 @@ public class Board : MonoBehaviour
 
     public BoardState State => state;
 
-    public static Board Instance { get; private set; }
+    //public static Board Instance { get; private set; }
 
-    private void Awake()
+    //private void OnEnable()
+    //{
+    //    GameManager.onStageLoaded += OnStageLoaded;
+    //}
+    //private void OnDisable()
+    //{
+    //    GameManager.onStageLoaded -= OnStageLoaded;
+    //}
+
+    public void OnStageLoaded()
     {
-        Instance = this;
+        InitializeBoard();
+        CreateBoardWithNoMatches();
     }
 
     private void Start()
     {
         InitializeBoard();
+        CreateBoardWithNoMatches();
     }
 
     public void InitializeBoard()
     {
         state = BoardState.Idle;
+        symbolsThatMatched.Clear();
     }
 
     public void CreateBoardWithNoMatches()
@@ -103,7 +117,9 @@ public class Board : MonoBehaviour
             return;
 
         // detected player click
-        if (Input.GetMouseButtonDown(0))
+        // that is not blocked by a UI element
+        if (Input.GetMouseButtonDown(0) &&
+            !EventSystem.current.IsPointerOverGameObject())
         {
             // send a raycast
             Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
@@ -283,73 +299,6 @@ public class Board : MonoBehaviour
         return hasMatched;
     }
 
-    public IEnumerator ProcessTurnWithMatch(bool consumeMove)
-    {
-        // set match flag to false on the symbols we're about the remove
-        foreach (Symbol symbolThatMatched in symbolsThatMatched)
-            symbolThatMatched.SetIsMatched(false);
-
-        // remove the matched symbols and refill them
-        RemoveAndRefill(symbolsThatMatched);
-
-        // process the turn in game manager
-        // note: in case we end up in game over or win state, the manager logic won't execute
-        //       so currently we don't need to worry about stopping the cascade logic.
-        if (GameManager.Instance.State == GameState.Playing)
-        {
-            int matchScore = CalculateMatchScore(symbolsThatMatched);
-            GameManager.Instance.ProcessTurn(matchScore, consumeMove);
-        }
-
-        // wait for a delay before processing another match
-        yield return new WaitForSeconds(delayBetweenMatchProcessing);
-
-        // is there another match that was found after refilling symbols?
-        // trigger cascade logic
-        if (BoardContainsMatch())
-        {
-            // increase cascade combo
-            cascadeChainCount += 1;
-
-            // process the turn once again (cascade), but without consuming a move
-            StartCoroutine(ProcessTurnWithMatch(consumeMove: false));
-        }
-        // no more matches found, go back to idle state
-        else
-        {
-            // reset cascade combo
-            cascadeChainCount = 0;
-
-            // clear stored matched symbols
-            symbolsThatMatched.Clear();
-
-            // the board goes back in idle state
-            state = BoardState.Idle;
-        }
-    }
-
-    private int CalculateMatchScore(List<Symbol> symbolsThatMatched)
-    {
-        // get the multiplier based on the number of symbols that matched
-        float matchLengthMultiplier = 1f;
-        if (symbolsThatMatched.Count == 3)
-            matchLengthMultiplier = threeMatchMultiplier;
-        else if (symbolsThatMatched.Count >= 4)
-            matchLengthMultiplier = longMatchMultiplier;
-
-        // get the cascade combo multiplier
-        float cascadeComboMultiplier = 1f + cascadeChainCount;
-
-        // get match score
-        // cumulate the symbols score values
-        SymbolData symbolType = symbolsThatMatched[0].Data;
-        int matchScore = symbolType.scoreValue * symbolsThatMatched.Count;
-
-        // calculate the final score for this match
-        int totalScore = Mathf.CeilToInt((matchScore * matchLengthMultiplier) * cascadeComboMultiplier);
-        return totalScore;
-    }
-
     private MatchResult CheckForMatch(Symbol symbol)
     {
         List<Symbol> connectedSymbols = new();
@@ -364,7 +313,7 @@ public class Board : MonoBehaviour
         // found horizontal match (3)
         if (connectedSymbols.Count == 3)
         {
-            Debug.Log($"Normal horizontal 3 match. Type: {connectedSymbols[0].Data.name}");
+            //Debug.Log($"Normal horizontal 3 match. Type: {connectedSymbols[0].Data.name}");
             return new MatchResult
             {
                 connectedSymbols = connectedSymbols,
@@ -374,7 +323,7 @@ public class Board : MonoBehaviour
         // found long horizontal match (> 3)
         else if (connectedSymbols.Count > 3)
         {
-            Debug.Log($"Long horizontal match. Type: {connectedSymbols[0].Data.name}");
+            //Debug.Log($"Long horizontal match. Type: {connectedSymbols[0].Data.name}");
             return new MatchResult
             {
                 connectedSymbols = connectedSymbols,
@@ -393,7 +342,7 @@ public class Board : MonoBehaviour
         // found vertical match (3)
         if (connectedSymbols.Count == 3)
         {
-            Debug.Log($"Normal vertical 3 match. Type: {connectedSymbols[0].Data.name}");
+            //Debug.Log($"Normal vertical 3 match. Type: {connectedSymbols[0].Data.name}");
             return new MatchResult
             {
                 connectedSymbols = connectedSymbols,
@@ -403,7 +352,7 @@ public class Board : MonoBehaviour
         // found long vertical match (> 3)
         else if (connectedSymbols.Count > 3)
         {
-            Debug.Log($"Long vertical match. Type: {connectedSymbols[0].Data.name}");
+            //Debug.Log($"Long vertical match. Type: {connectedSymbols[0].Data.name}");
             return new MatchResult
             {
                 connectedSymbols = connectedSymbols,
@@ -647,7 +596,6 @@ public class Board : MonoBehaviour
         // if we don't have any symbol currently selected, then select it
         if (selectedSymbol == null)
         {
-            Debug.Log(symbol);
             SelectSymbol(symbol);
         }
         // if we selected the same symbol twice, deselect it
@@ -655,28 +603,34 @@ public class Board : MonoBehaviour
         {
             DeselectCurrentSymbol();
         }
-        // if we selected a different symbol while we have a symbol selected, swap them
+        // if we selected a different symbol while we have a symbol selected,
+        // either swap them or change current selection
         else if (selectedSymbol != symbol)
         {
-            TrySwapSymbols(selectedSymbol, symbol);
-            DeselectCurrentSymbol();
+            var currentSelectedSymbol = selectedSymbol;
+
+            // check if the symbols are adjacent to eachother
+            var symbolsAreAdjacent = IsAdjacent(currentSelectedSymbol, symbol);
+
+            // if they are adjacent, swap them
+            if (symbolsAreAdjacent)
+            {
+                state = BoardState.ProcessingMove;
+
+                SwapSymbols(currentSelectedSymbol, symbol);
+                StartCoroutine(ProcessMatchesAfterSwap(currentSelectedSymbol, symbol));
+            }
+            // otherwise select the new symbol
+            else
+            {
+                DeselectCurrentSymbol();
+                SelectSymbol(symbol);
+            }
         }
     }
 
     private void SelectSymbol(Symbol symbol) => selectedSymbol = symbol;
     private void DeselectCurrentSymbol() => selectedSymbol = null;
-
-    private void TrySwapSymbols(Symbol firstSymbol, Symbol secondSymbol)
-    {
-        // check if the symbols are adjacent to eachother
-        if (!IsAdjacent(firstSymbol, secondSymbol))
-            return;
-
-        state = BoardState.ProcessingMove;
-
-        SwapSymbols(firstSymbol, secondSymbol);
-        StartCoroutine(ProcessMatchesAfterSwap(firstSymbol, secondSymbol));
-    }
 
     private bool IsAdjacent(Symbol firstSymbol, Symbol secondSymbol)
     {
@@ -703,16 +657,20 @@ public class Board : MonoBehaviour
         firstSymbol.MoveToPosition(secondSymbolPos);
         secondSymbol.MoveToPosition(firstSymbolPos);
     }
+    #endregion
 
+    #region TURNS
     private IEnumerator ProcessMatchesAfterSwap(Symbol firstSymbol, Symbol secondSymbol)
     {
+        state = BoardState.ProcessingMove;
+
         // wait for the symbols to finish swapping their position
         yield return new WaitForSeconds(symbolSwapDuration);
 
         // if a match was found, process it
         if (BoardContainsMatch())
         {
-            StartCoroutine(ProcessTurnWithMatch(true));
+            StartCoroutine(ProcessTurnWithMatch());
         }
         // if there was no match, move the symbols back to their starting tile
         else
@@ -720,9 +678,90 @@ public class Board : MonoBehaviour
             // swap the symbols back to their original tiles
             SwapSymbols(firstSymbol, secondSymbol);
 
+            // consume one move after an invalid swap action
+            if (GameManager.Instance.State == GameState.Playing)
+            {
+                GameManager.Instance.ProcessTurn();
+            }
+
             // go back to idle state
             state = BoardState.Idle;
         }
+    }
+
+    public IEnumerator ProcessTurnWithMatch()
+    {
+        // set match flag to false on the symbols we're about the remove
+        foreach (Symbol symbolThatMatched in symbolsThatMatched)
+            symbolThatMatched.SetIsMatched(false);
+
+        // add match score
+        if (GameManager.Instance.State == GameState.Playing)
+        {
+            int matchScore = CalculateMatchScore(symbolsThatMatched);
+            if (matchScore > 0)
+                GameManager.Instance.AddScore(matchScore);
+        }
+
+        // remove the matched symbols and refill them
+        RemoveAndRefill(symbolsThatMatched);
+
+        // wait for a delay before processing another match
+        yield return new WaitForSeconds(delayBetweenMatchProcessing);
+
+        // is there another match that was found after refilling symbols?
+        // trigger cascade logic
+        if (BoardContainsMatch())
+        {
+            // increase cascade combo
+            cascadeChainCount += 1;
+
+            // process the turn once again (cascade), but without consuming a move
+            StartCoroutine(ProcessTurnWithMatch());
+        }
+        // no more matches found, go back to idle state
+        else
+        {
+            // reset cascade combo
+            cascadeChainCount = 0;
+
+            // clear stored matched symbols
+            symbolsThatMatched.Clear();
+
+            // process the turn after we ended processing all the matches
+            // this will take care of consuming a move and triggering post-match logic such as winning or game over
+            if (GameManager.Instance.State == GameState.Playing)
+            {
+                GameManager.Instance.ProcessTurn();
+            }
+
+            // the board goes back in idle state
+            state = BoardState.Idle;
+        }
+    }
+
+    public float GetCascadeComboMultiplier() => Mathf.Min(cascadeMaxChain, 1f + cascadeChainCount);
+
+    private int CalculateMatchScore(List<Symbol> symbolsThatMatched)
+    {
+        // get the multiplier based on the number of symbols that matched
+        float matchLengthMultiplier = 1f;
+        if (symbolsThatMatched.Count == 3)
+            matchLengthMultiplier = threeMatchMultiplier;
+        else if (symbolsThatMatched.Count >= 4)
+            matchLengthMultiplier = longMatchMultiplier;
+
+        // get the cascade combo multiplier
+        float cascadeComboMultiplier = GetCascadeComboMultiplier();
+
+        // get match score
+        // cumulate the symbols score values
+        SymbolData symbolType = symbolsThatMatched[0].Data;
+        int matchScore = symbolType.scoreValue * symbolsThatMatched.Count;
+
+        // calculate the final score for this match
+        int totalScore = Mathf.CeilToInt((matchScore * matchLengthMultiplier) * cascadeComboMultiplier);
+        return totalScore;
     }
     #endregion
 }

@@ -47,6 +47,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   spriteRenderer: {fileID: 1393836646070208606}
   data: {fileID: 0}
+  movementAnimationType: 32
   x: 0
   y: 0
   isMatched: 0

@@ -114,7 +114,7 @@ MonoBehaviour:
   width: 6
   height: 8
   maxTriesToGenerateBoard: 100
-  symbolSwapDuration: 0.2
+  symbolSwapDuration: 0.4
   delayBetweenMatchProcessing: 0.4
   extraConnectionMinLength: 2
   threeMatchMultiplier: 1
