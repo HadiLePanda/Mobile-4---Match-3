@@ -47,6 +47,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   stages:
   - {fileID: 11400000, guid: edf79690bed48864e889f217d823f5bc, type: 2}
+  - {fileID: 11400000, guid: 25ea5188cddef6841a1ed0f3d42f3b6e, type: 2}
+  - {fileID: 11400000, guid: 791d538a35ff2be478502f3343951df8, type: 2}
+  - {fileID: 11400000, guid: 1be9b631b11760d448bec89e8b64f467, type: 2}
+  - {fileID: 11400000, guid: e398f05c8bf151e44ae3fcdb0c79fd14, type: 2}
   gameOverSequenceTime: 1
   gameWinSequenceTime: 1
   mainMenuMusicVolume: 0.7

@@ -48,11 +48,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   musicSource: {fileID: 5482140884632565522}
   ambientSource: {fileID: 5378341934153989202}
-  gameMusic: {fileID: 8300000, guid: 0fde4b24640785f41befa021b73c06c1, type: 3}
-  menuMusic: {fileID: 8300000, guid: 4e9b3080dbd6d424685f0f19998fe771, type: 3}
-  gameAmbient: {fileID: 0}
   defaultMusicVolume: 0.5
   maximumMusicVolumeDb: -15
+  gameMusic: {fileID: 8300000, guid: 0fde4b24640785f41befa021b73c06c1, type: 3}
+  menuMusic: {fileID: 8300000, guid: 4e9b3080dbd6d424685f0f19998fe771, type: 3}
+  gameAmbient: {fileID: 8300000, guid: bfd318a2b752460409b906e3ca7ee42d, type: 3}
 --- !u!1 &2923597132166529700
 GameObject:
   m_ObjectHideFlags: 0

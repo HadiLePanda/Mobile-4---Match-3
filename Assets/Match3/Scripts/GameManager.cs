@@ -38,6 +38,7 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
     [SerializeField, ReadOnly] private int currentStageIndex;
 
     public GameState State => state;
+    public StageData[] Stages => stages;
     public int CurrentStageIndex => currentStageIndex;
     public int Score => SessionManager.Instance.Score;
     public int MovesRemaining => SessionManager.Instance.MovesRemaining;
@@ -52,12 +53,15 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
 
     protected override void Init()
     {
+        // load main menu scene
+        GoToMainMenu();
+    }
+
+    private void Start()
+    {
         // load data
         UserData userData = SaveManager.Instance.LoadUserData();
         Player.Instance.LoadUserData(userData);
-
-        // load main menu scene
-        GoToMainMenu();
     }
 
     #region GAME LOGIC
@@ -192,6 +196,7 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
     #endregion
 
     #region STAGES
+    public bool IsValidStageIndex(int index) => index >= 0 && index <= stages.Length - 1;
     public StageData GetCurrentStage() => stages[currentStageIndex];
 
     public void ReplayStage()
@@ -205,7 +210,18 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
     }
     public void PlayNextStage()
     {
-        PlayStage(currentStageIndex + 1);
+        var nextStageIndex = currentStageIndex + 1;
+
+        // load next stage if it exists
+        if (IsValidStageIndex(nextStageIndex))
+        {
+            PlayStage(nextStageIndex);
+        }
+        // if the index doesn't exist, go back to main menu
+        else
+        {
+            GoToMainMenu();
+        }
     }
 
     public void PlayStage(int stageIndex)

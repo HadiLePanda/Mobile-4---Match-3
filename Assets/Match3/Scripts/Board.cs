@@ -23,7 +23,8 @@ public enum MatchDirection
 public enum BoardState
 {
     Idle,
-    ProcessingMove
+    Generating,
+    ProcessingMove,
 }
 
 public class Board : SingletonMonoBehaviour<Board>
@@ -82,13 +83,13 @@ public class Board : SingletonMonoBehaviour<Board>
     public void OnStageLoaded()
     {
         InitializeBoard();
-        CreateBoardWithNoMatches();
+        CreatePlayableBoardWithNoMatches();
     }
 
     private void Start()
     {
         InitializeBoard();
-        CreateBoardWithNoMatches();
+        CreatePlayableBoardWithNoMatches();
     }
 
     public void InitializeBoard()
@@ -97,8 +98,10 @@ public class Board : SingletonMonoBehaviour<Board>
         symbolsThatMatched.Clear();
     }
 
-    public void CreateBoardWithNoMatches()
+    public void CreatePlayableBoardWithNoMatches()
     {
+        state = BoardState.Generating;
+
         // try to generate a board with no matches on start
         int triesToGenerateBoard = 0;
         while (triesToGenerateBoard < maxTriesToGenerateBoard)
@@ -108,15 +111,17 @@ public class Board : SingletonMonoBehaviour<Board>
             GenerateBoard();
             triesToGenerateBoard++;
 
-            // this board doesn't contain any match, stop generating
-            if (!BoardContainsMatch())
+            // this board is valid, stop generating
+            if (!BoardContainsMatch() &&
+                BoardIsPlayable())
             {
                 break;
             }
 
-            // matches were found, regenerate
-            //Debug.Log("Found matches when generating the board, regenerating new board.");
+            // invalid board, regenerate ...
         }
+
+        state = BoardState.Idle;
     }
 
     private void Update()
@@ -216,6 +221,12 @@ public class Board : SingletonMonoBehaviour<Board>
         }
 
         //Debug.Log("Generated new board.");
+    }
+
+    private bool BoardIsPlayable()
+    {
+        // TODO: check if there's at least one way to make a match in the current board
+        return true;
     }
 
     private SymbolData GetRandomSymbol()
@@ -606,8 +617,8 @@ public class Board : SingletonMonoBehaviour<Board>
         else if (selectedSymbol != symbol)
         {
             // we're in the process of moving tiles around, so don't do anything
-            //if (state == BoardState.ProcessingMove)
-            //    return;
+            if (state == BoardState.Idle)
+                return;
 
             // check if the symbols are adjacent to eachother
             var currentSelectedSymbol = selectedSymbol;
@@ -615,7 +626,7 @@ public class Board : SingletonMonoBehaviour<Board>
 
             // if they are adjacent, swap them*
             // we only execute this if there's no ongoing swapping
-            if (symbolsAreAdjacent && state != BoardState.ProcessingMove)
+            if (symbolsAreAdjacent)
             {
                 state = BoardState.ProcessingMove;
 
@@ -699,6 +710,15 @@ public class Board : SingletonMonoBehaviour<Board>
 
             // go back to idle state
             state = BoardState.Idle;
+        }
+
+        // check to make sure there is at least one possible match, otherwise regenerate the board
+        if (!BoardIsPlayable())
+        {
+            // regenerate the board
+            CreatePlayableBoardWithNoMatches();
+
+            // new board is generated
         }
     }
 

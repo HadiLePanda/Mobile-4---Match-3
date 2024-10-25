@@ -3274,7 +3274,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6608531136005363756, guid: f38826a090de9d54c9947f16ebde3e3f, type: 3}
       propertyPath: m_Name
-      value: GameOverWindow
+      value: GameOverPopup
       objectReference: {fileID: 0}
     - target: {fileID: 6608531136005363756, guid: f38826a090de9d54c9947f16ebde3e3f, type: 3}
       propertyPath: m_IsActive
@@ -6774,7 +6774,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6308703747837221164, guid: 5633d277b5cc2b048ad68cdc852f29f3, type: 3}
       propertyPath: m_Name
-      value: Canvas_Popups
+      value: Canvas_Windows
       objectReference: {fileID: 0}
     - target: {fileID: 6308703747837221164, guid: 5633d277b5cc2b048ad68cdc852f29f3, type: 3}
       propertyPath: m_IsActive
@@ -9222,7 +9222,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6608531136005363756, guid: f38826a090de9d54c9947f16ebde3e3f, type: 3}
       propertyPath: m_Name
-      value: GameWinWindow
+      value: GameWinPopup
       objectReference: {fileID: 0}
     - target: {fileID: 6608531136005363756, guid: f38826a090de9d54c9947f16ebde3e3f, type: 3}
       propertyPath: m_IsActive

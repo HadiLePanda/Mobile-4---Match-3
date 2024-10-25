@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public class SessionManager : SingletonMonoBehaviour<SessionManager>
 {
@@ -9,6 +10,7 @@ public class SessionManager : SingletonMonoBehaviour<SessionManager>
     [Header("Settings")]
     [SerializeField] private int coinsPerMoveRemaining = 100;
     [SerializeField] private int maxBonusRemainingMoves = 3;
+    [SerializeField] private int maxRandomExtraCoins = 20;
 
     [Header("Debug")]
     [SerializeField, ReadOnly] private int score;
@@ -36,9 +38,9 @@ public class SessionManager : SingletonMonoBehaviour<SessionManager>
 
     public static Action onScoreChanged;
 
-    protected override void Init() => InitializeSession();
+    //protected override void Init() => InitializeSession();
 
-    public void InitializeSession()
+    private void Start()
     {
         score = 0;
         sessionCoins = 0;
@@ -48,11 +50,19 @@ public class SessionManager : SingletonMonoBehaviour<SessionManager>
     public void OnStageWin()
     {
         // calculate coins earned for this session
-        int movesRemainingMultiplier = Mathf.Clamp(movesRemaining, 0, maxBonusRemainingMoves);
+        int scoreCoins = score / 2;
+
+        int movesRemainingMultiplier = Mathf.Clamp(movesRemaining, 1, maxBonusRemainingMoves);
         int extraMovesCoinsReward = coinsPerMoveRemaining * movesRemainingMultiplier;
 
+        int maxRandomCoins = movesRemaining > 1
+            ? Mathf.Min(maxRandomExtraCoins, extraMovesCoinsReward)
+            : 0;
+        int randomExtraCoins = Random.Range(0, maxRandomCoins);
+
+
         // update the session earned coins
-        sessionCoins = extraMovesCoinsReward;
+        sessionCoins = scoreCoins + extraMovesCoinsReward + randomExtraCoins;
     }
 
     private void SetMovesRemaining(in int newMovesRemaining) => movesRemaining = newMovesRemaining;

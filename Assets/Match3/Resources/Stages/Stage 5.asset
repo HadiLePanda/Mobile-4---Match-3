@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 28dabdf549da9f14aa4e6a1750f35554, type: 3}
-  m_Name: Stage 1
+  m_Name: Stage 5
   m_EditorClassIdentifier: 
   backgroundPrefab: {fileID: 0}
   stageSymbols:
@@ -18,7 +18,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 2f17136e816bfe540ba9934975acc634, type: 2}
   - {fileID: 11400000, guid: 49175fc2f6ba4594baa5f9c750aaace1, type: 2}
   - {fileID: 11400000, guid: 550e60989b6f1f3499d2cc93628da7a8, type: 2}
+  - {fileID: 11400000, guid: 08c4c1e331b64e34993ba085dd34ec83, type: 2}
+  - {fileID: 11400000, guid: 5c72470407ddf3b458903372b5273e2e, type: 2}
+  - {fileID: 11400000, guid: 4e3963a9763e3fd48a9893eebdb5021e, type: 2}
   boardWidth: 6
   boardHeight: 8
-  requiredScoreToWin: 2000
-  maxMoves: 10
+  requiredScoreToWin: 30000
+  maxMoves: 60
