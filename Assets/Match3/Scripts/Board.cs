@@ -617,7 +617,7 @@ public class Board : SingletonMonoBehaviour<Board>
         else if (selectedSymbol != symbol)
         {
             // we're in the process of moving tiles around, so don't do anything
-            if (state == BoardState.Idle)
+            if (state != BoardState.Idle)
                 return;
 
             // check if the symbols are adjacent to eachother
