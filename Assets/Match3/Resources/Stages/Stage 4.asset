@@ -23,5 +23,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 4e3963a9763e3fd48a9893eebdb5021e, type: 2}
   boardWidth: 6
   boardHeight: 8
-  requiredScoreToWin: 12000
+  requiredScoreToWin: 5000
   maxMoves: 35
