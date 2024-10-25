@@ -30,7 +30,7 @@ public abstract class SingletonMonoBehaviour<T> : MonoBehaviour where T : Single
 
     protected void Awake()
     {
-        if (_instance != null)
+        if (_instance != null && _instance != this)
         {
             Destroy(gameObject);
             return;

@@ -45,6 +45,17 @@ public class Board : SingletonMonoBehaviour<Board>
     public int cascadeMaxChain = 3;
     public ArrayLayout arrayLayout;
 
+    [Header("Audio")]
+    public float matchPitchVariation = 0.1f;
+    public AudioClip swapSound;
+    public AudioClip selectSound;
+    public AudioClip regularMatchSound;
+    public AudioClip cascadeOneMatchSound;
+    public AudioClip cascadeTwoMatchSound;
+    public AudioClip cascadeThreeMatchSound;
+    public AudioClip cascadeFourMatchSound;
+    public AudioClip ultraCascadeJingleSound;
+
     [Header("Debug")]
     [SerializeField, ReadOnly] private BoardState state;
     [SerializeField, ReadOnly] private Symbol selectedSymbol;
@@ -110,7 +121,7 @@ public class Board : SingletonMonoBehaviour<Board>
 
     private void Update()
     {
-        // TODO: convert to swapping, and refactor to input script
+        // TODO: convert to swiping, and refactor to input script
 
         // run logic only while in playing state
         if (GameManager.Instance.State != GameState.Playing)
@@ -128,11 +139,6 @@ public class Board : SingletonMonoBehaviour<Board>
             // we clicked on a symbol
             if (hit.collider != null && hit.collider.GetComponentInParent<Symbol>())
             {
-                // we're in the process of moving tiles around, so don't do anything
-                // TODO: add selection queue?
-                if (state == BoardState.ProcessingMove)
-                    return;
-
                 // select
                 Symbol clickedSymbol = hit.collider.GetComponentInParent<Symbol>();
                 OnSymbolClicked(clickedSymbol);
@@ -473,19 +479,11 @@ public class Board : SingletonMonoBehaviour<Board>
     #region CASCADING
     private void RemoveAndRefill(List<Symbol> symbolsToRemove)
     {
-        // remove symbols and clear the tiles there were at
+        // remove symbols and clear the tiles they were in
         foreach (Symbol symbolToRemove in symbolsToRemove)
         {
-            // get symbol tile indices
             Vector2Int symbolIndices = symbolToRemove.GetIndices();
-
-            // destroy the symbol
-            Destroy(symbolToRemove.gameObject);
-
-            // empty the tile where the symbol was
-            board[symbolIndices.x, symbolIndices.y] = new Tile(true, null);
-
-            // TODO: RemoveSymbolAt(symbolIndices);
+            RemoveSymbolAt(symbolIndices);
         }
 
         for (int x = 0; x < width; x++)
@@ -607,13 +605,17 @@ public class Board : SingletonMonoBehaviour<Board>
         // either swap them or change current selection
         else if (selectedSymbol != symbol)
         {
-            var currentSelectedSymbol = selectedSymbol;
+            // we're in the process of moving tiles around, so don't do anything
+            //if (state == BoardState.ProcessingMove)
+            //    return;
 
             // check if the symbols are adjacent to eachother
+            var currentSelectedSymbol = selectedSymbol;
             var symbolsAreAdjacent = IsAdjacent(currentSelectedSymbol, symbol);
 
-            // if they are adjacent, swap them
-            if (symbolsAreAdjacent)
+            // if they are adjacent, swap them*
+            // we only execute this if there's no ongoing swapping
+            if (symbolsAreAdjacent && state != BoardState.ProcessingMove)
             {
                 state = BoardState.ProcessingMove;
 
@@ -629,7 +631,12 @@ public class Board : SingletonMonoBehaviour<Board>
         }
     }
 
-    private void SelectSymbol(Symbol symbol) => selectedSymbol = symbol;
+    private void SelectSymbol(Symbol symbol)
+    {
+        selectedSymbol = symbol;
+        AudioManager.Instance.PlaySound2DOneShot(selectSound, pitchVariation: 0.1f);
+    }
+
     private void DeselectCurrentSymbol() => selectedSymbol = null;
 
     private bool IsAdjacent(Symbol firstSymbol, Symbol secondSymbol)
@@ -656,6 +663,9 @@ public class Board : SingletonMonoBehaviour<Board>
         Vector3 secondSymbolPos = board[secondSymbol.X, secondSymbol.Y].symbol.transform.position;
         firstSymbol.MoveToPosition(secondSymbolPos);
         secondSymbol.MoveToPosition(firstSymbolPos);
+
+        // play swap sound
+        AudioManager.Instance.PlaySound2DOneShot(swapSound, 0.1f);
     }
     #endregion
 
@@ -677,6 +687,9 @@ public class Board : SingletonMonoBehaviour<Board>
         {
             // swap the symbols back to their original tiles
             SwapSymbols(firstSymbol, secondSymbol);
+
+            // wait for the symbols to finish swapping their position
+            yield return new WaitForSeconds(symbolSwapDuration);
 
             // consume one move after an invalid swap action
             if (GameManager.Instance.State == GameState.Playing)
@@ -705,6 +718,21 @@ public class Board : SingletonMonoBehaviour<Board>
 
         // remove the matched symbols and refill them
         RemoveAndRefill(symbolsThatMatched);
+
+        // play match sound
+        if (cascadeChainCount == 0)
+            AudioManager.Instance.PlaySound2DOneShot(regularMatchSound, matchPitchVariation);
+        else if (cascadeChainCount == 1)
+            AudioManager.Instance.PlaySound2DOneShot(cascadeOneMatchSound, matchPitchVariation);
+        else if (cascadeChainCount == 2)
+            AudioManager.Instance.PlaySound2DOneShot(cascadeTwoMatchSound, matchPitchVariation);
+        else if (cascadeChainCount == 3)
+            AudioManager.Instance.PlaySound2DOneShot(cascadeThreeMatchSound, matchPitchVariation);
+        else if (cascadeChainCount >= 4)
+        {
+            AudioManager.Instance.PlaySound2DOneShot(cascadeFourMatchSound, matchPitchVariation);
+            AudioManager.Instance.PlaySound2DOneShot(ultraCascadeJingleSound, matchPitchVariation);
+        }
 
         // wait for a delay before processing another match
         yield return new WaitForSeconds(delayBetweenMatchProcessing);

@@ -24,7 +24,13 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
     [SerializeField] private float gameOverSequenceTime = 1f;
     [SerializeField] private float gameWinSequenceTime = 1f;
     [SerializeField] private float mainMenuMusicVolume = 0.7f;
+    [SerializeField] private float stageOverMusicVolume = 0.4f;
+    [SerializeField] private float musicFadeTime = 1f;
     [SerializeField] private int extraMoveScoreValue = 100;
+
+    [Header("Sounds")]
+    [SerializeField] private AudioClip winSound;
+    [SerializeField] private AudioClip gameOverSound;
 
     [Header("Debug")]
     [SerializeField, ReadOnly] private GameState state;
@@ -62,7 +68,7 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
 
     protected override void Init()
     {
-        state = GameState.MainMenu;
+        GoToMainMenu();
 
         // TODO remove after adding proper stage selection
         //yield return new WaitForSeconds(0.5f);
@@ -101,20 +107,26 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
     #endregion
 
     #region GAME STATE
+    public void InitializeMainMenu()
+    {
+        state = GameState.MainMenu;
+
+        // play menu music
+        MusicManager.Instance.PlayMusic(MusicManager.Instance.menuMusic, mainMenuMusicVolume, musicFadeTime);
+    }
+
     public void GoToMainMenu()
     {
         state = GameState.Loading;
 
-        // stop music
+        // stop music & ambient
         MusicManager.Instance.StopMusic();
+        MusicManager.Instance.StopAmbient();
 
         // load main menu scene
         SceneManager.LoadScene(SCENE_MAINMENU);
 
-        state = GameState.MainMenu;
-
-        // play menu music
-        MusicManager.Instance.PlayMusic(MusicManager.Instance.menuMusic, mainMenuMusicVolume);
+        InitializeMainMenu();
     }
 
     public void GameOver()
@@ -147,8 +159,16 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
     {
         Debug.Log("Game over!");
 
-        // TODO: play game over effects
-        // TODO: lower volume
+        // TODO:play game over effects
+
+        // play game over sound
+        AudioManager.Instance.PlaySound2DOneShot(gameOverSound);
+
+        // lower music volume
+        MusicManager.Instance.SetMusicVolume(stageOverMusicVolume);
+
+        // stop ambient
+        MusicManager.Instance.StopAmbient();
 
         yield return new WaitForSeconds(gameOverSequenceTime);
 
@@ -161,11 +181,18 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
         Debug.Log("Stage won!");
 
         // TODO: play game win effects
-        // TODO: lower volume
+
+        // TODO: reward with coins
+
+        // play win sound
+        AudioManager.Instance.PlaySound2DOneShot(winSound, pitchVariation: 0.05f);
+
+        // lower music volume
+        MusicManager.Instance.SetMusicVolume(stageOverMusicVolume);
 
         yield return new WaitForSeconds(gameWinSequenceTime);
 
-        // trigger event toshow stage win popup
+        // trigger event to show stage win popup
         onStageWinSequenceFinished?.Invoke();
     }
     #endregion
@@ -201,7 +228,9 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
         LoadStage(stageIndex);
 
         // play gameplay music
-        MusicManager.Instance.PlayMusic(MusicManager.Instance.gameMusic);
+        MusicManager.Instance.PlayMusic(MusicManager.Instance.gameMusic, fadeDuration: musicFadeTime);
+        // play ambient
+        MusicManager.Instance.PlayAmbient(MusicManager.Instance.gameAmbient);
 
         // enter playing state
         state = GameState.Playing;

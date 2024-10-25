@@ -48,15 +48,15 @@ public class Symbol : MonoBehaviour
     // MOVEMENT
     public void MoveToPosition(Vector2 targetPos)
     {
-        // TODO: use LeanTween to easily animate movement
-        //StartCoroutine(MoveCoroutine(targetPos));
-
+        Debug.Log("Moving");
         isMoving = true;
         PlayMovementAnimation(targetPos);
     }
 
     private void PlayMovementAnimation(Vector2 targetPos)
     {
+        //StartCoroutine(MoveCoroutine(targetPos));
+
         // cancel any ongoing movement animation
         LeanTween.cancel(moveTweenId);
 

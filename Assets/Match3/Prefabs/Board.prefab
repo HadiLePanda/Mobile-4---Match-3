@@ -25,7 +25,7 @@ Transform:
   m_GameObject: {fileID: 4673208043286952929}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -1, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -119,6 +119,7 @@ MonoBehaviour:
   extraConnectionMinLength: 2
   threeMatchMultiplier: 1
   longMatchMultiplier: 1.5
+  cascadeMaxChain: 3
   arrayLayout:
     rows:
     - row: 000000000000
@@ -129,6 +130,15 @@ MonoBehaviour:
     - row: 000000000000
     - row: 000000000000
     - row: 000000000000
+  matchPitchVariation: 0.1
+  swapSound: {fileID: 8300000, guid: 240f721b354054340985954ed4b8b466, type: 3}
+  selectSound: {fileID: 8300000, guid: 2459d1de71377e4408744542c6a6f32d, type: 3}
+  regularMatchSound: {fileID: 8300000, guid: f025aba67111df8449de618ce7a5d62a, type: 3}
+  cascadeOneMatchSound: {fileID: 8300000, guid: 1a09533b3f4cb0c40b81639a73aeddf0, type: 3}
+  cascadeTwoMatchSound: {fileID: 8300000, guid: 3ec6d9d772ecde34b93f76b9c421ae98, type: 3}
+  cascadeThreeMatchSound: {fileID: 8300000, guid: 0b28e02bdcdae004b84d224dd2eb1b0f, type: 3}
+  cascadeFourMatchSound: {fileID: 8300000, guid: c48a2b1f7b760514eb93fd09c17e556a, type: 3}
+  ultraCascadeJingleSound: {fileID: 8300000, guid: 1be945f68a9644c4fb70c9d5a17c350c, type: 3}
   state: 0
   selectedSymbol: {fileID: 0}
   symbolsThatMatched: []

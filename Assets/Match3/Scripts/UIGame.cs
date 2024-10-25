@@ -14,6 +14,7 @@ public class UIGame : MonoBehaviour
     public TMP_Text multiplierText;
     public TMP_Text movesRemaining;
     public TMP_Text timerText;
+    public TMP_Text stageText;
     public Button pauseButton;
     public Slider scoreSlider;
 
@@ -34,6 +35,7 @@ public class UIGame : MonoBehaviour
         goalText.text = GameManager.Instance.ScoreToWin.ToString();
         multiplierText.text = "x" + Board.Instance.GetCascadeComboMultiplier().ToString();
         movesRemaining.text = GameManager.Instance.MovesRemaining.ToString();
+        stageText.text = (GameManager.Instance.CurrentStageIndex + 1).ToString();
         pauseButton.interactable = GameManager.Instance.State == GameState.Playing;
         scoreSlider.value = GameManager.Instance.ScoreProgressPercent;
     }

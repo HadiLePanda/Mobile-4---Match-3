@@ -11,6 +11,8 @@ public class UISettings : MonoBehaviour
     private const string PREF_MASTER_VOLUME = "MasterVolume";
     private const string PREF_MUSIC_VOLUME = "MusicVolume";
 
+    private const float MIN_VOLUME_DB = -80f; // mute
+
     [Header("References")]
     public AudioMixer audioMixer;
     public Slider masterSlider;
@@ -36,6 +38,7 @@ public class UISettings : MonoBehaviour
     public void UpdateMasterVolume(float volume)
     {
         volume = Mathf.Clamp(volume, 0.001f, 1f);
+
         audioMixer.SetFloat(MIXER_MASTER, Mathf.Log10(volume) * 20);
 
         SaveVolume();
@@ -45,7 +48,16 @@ public class UISettings : MonoBehaviour
     public void UpdateMusicVolume(float volume)
     {
         volume = Mathf.Clamp(volume, 0.001f, 1f);
-        audioMixer.SetFloat(MIXER_MUSIC, Mathf.Log10(volume) * 20);
+
+        // calculate volume in dB based on log scale
+        float logRange = 3f; // logarithmic difference, constant
+        float normalizedVolume = (Mathf.Log10(volume) - Mathf.Log10(0.001f)) / logRange;
+
+        // convert to dB and set the value in the audio mixer
+        float volumeInDB = Mathf.Lerp(MIN_VOLUME_DB, MusicManager.Instance.maximumMusicVolumeDb, normalizedVolume);
+
+        audioMixer.SetFloat(MIXER_MUSIC, volumeInDB);
+        //audioMixer.SetFloat(MIXER_MUSIC, Mathf.Log10(volume) * 20); // only if it goes from -80 to 0 db
 
         SaveVolume();
         UpdateUI();
@@ -53,13 +65,13 @@ public class UISettings : MonoBehaviour
 
     public void SaveVolume()
     {
-        audioMixer.GetFloat(MIXER_MASTER, out float masterVolume);
-        var masterMixerToSliderValue = Mathf.Pow(10, masterVolume / 20);
-        PlayerPrefs.SetFloat(PREF_MASTER_VOLUME, masterMixerToSliderValue);
+        //audioMixer.GetFloat(MIXER_MASTER, out float masterVolume);
+        //var masterMixerToSliderValue = Mathf.Pow(10, masterVolume / 20);
+        PlayerPrefs.SetFloat(PREF_MASTER_VOLUME, masterSlider.value);
 
-        audioMixer.GetFloat(MIXER_MUSIC, out float musicVolume);
-        var musicMixerToSliderValue = Mathf.Pow(10, musicVolume / 20);
-        PlayerPrefs.SetFloat(PREF_MUSIC_VOLUME, musicMixerToSliderValue);
+        //audioMixer.GetFloat(MIXER_MUSIC, out float musicVolume);
+        //var musicMixerToSliderValue = Mathf.Pow(10, musicVolume / 20);
+        PlayerPrefs.SetFloat(PREF_MUSIC_VOLUME, musicSlider.value);
 
         PlayerPrefs.Save();
     }
