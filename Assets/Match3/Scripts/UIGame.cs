@@ -31,13 +31,13 @@ public class UIGame : MonoBehaviour
 
     private void UpdateUI()
     {
-        scoreText.text = GameManager.Instance.Score.ToString();
-        goalText.text = GameManager.Instance.ScoreToWin.ToString();
-        multiplierText.text = "x" + Board.Instance.GetCascadeComboMultiplier().ToString();
-        movesRemaining.text = GameManager.Instance.MovesRemaining.ToString();
         stageText.text = (GameManager.Instance.CurrentStageIndex + 1).ToString();
+        scoreText.text = GameManager.Instance.Score.ToString();
+        goalText.text = GameManager.Instance.GetCurrentStage().requiredScoreToWin.ToString();
+        multiplierText.text = "x" + Board.Instance.GetCascadeComboMultiplier().ToString();
         pauseButton.interactable = GameManager.Instance.State == GameState.Playing;
-        scoreSlider.value = GameManager.Instance.ScoreProgressPercent;
+        movesRemaining.text = SessionManager.Instance.MovesRemaining.ToString();
+        scoreSlider.value = SessionManager.Instance.ScoreProgressPercent;
     }
 
     public void Pause()

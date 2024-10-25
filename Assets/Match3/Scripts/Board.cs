@@ -713,7 +713,7 @@ public class Board : SingletonMonoBehaviour<Board>
         {
             int matchScore = CalculateMatchScore(symbolsThatMatched);
             if (matchScore > 0)
-                GameManager.Instance.AddScore(matchScore);
+                SessionManager.Instance.AddScore(matchScore);
         }
 
         // remove the matched symbols and refill them

@@ -34,33 +34,17 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
 
     [Header("Debug")]
     [SerializeField, ReadOnly] private GameState state;
-    [SerializeField, ReadOnly] private int score;
-    [SerializeField, ReadOnly] private int movesRemaining;
-    [SerializeField, ReadOnly] private int scoreToWin;
+    
     [SerializeField, ReadOnly] private int currentStageIndex;
 
     public GameState State => state;
-    public int Score => score;
-    public int ScoreToWin => stages[currentStageIndex].requiredScoreToWin;
-    public int MaxMoves => stages[currentStageIndex].maxMoves;
-    public int MovesRemaining => movesRemaining;
     public int CurrentStageIndex => currentStageIndex;
-    public float ScoreProgressPercent
-    {
-        get
-        {
-            if (scoreToWin <= 0)
-                return 0f;
-
-            return Mathf.Clamp01((float)score / (float)scoreToWin);
-        }
-    }
-
-    public void SetScore(int newScore) => score = newScore;
+    public int Score => SessionManager.Instance.Score;
+    public int MovesRemaining => SessionManager.Instance.MovesRemaining;
+    
     public void SetState(GameState newState) => state = newState;
 
     public static Action onStartStage, onStageWin, onGameOver;
-    public static Action onScoreChanged;
     public static Action onStageWinSequenceFinished, onGameOverSequenceFinished;
     public static Action onStageLoaded;
 
@@ -68,11 +52,12 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
 
     protected override void Init()
     {
-        GoToMainMenu();
+        // load data
+        UserData userData = SaveManager.Instance.LoadUserData();
+        Player.Instance.LoadUserData(userData);
 
-        // TODO remove after adding proper stage selection
-        //yield return new WaitForSeconds(0.5f);
-        //PlayStage(0);
+        // load main menu scene
+        GoToMainMenu();
     }
 
     #region GAME LOGIC
@@ -83,18 +68,18 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
 
         // consume a move for playing this turn
         if (consumeMove &&
-            movesRemaining > 0)
+            SessionManager.Instance.MovesRemaining > 0)
         {
             ConsumeMove();
         }
 
         // we reached the stage win score, stage won
-        if (score >= scoreToWin)
+        if (Score >= GetCurrentStage().requiredScoreToWin)
         {
             StageWin();
         }
         // we don't have any moves left, game over
-        else if (movesRemaining == 0)
+        else if (MovesRemaining == 0)
         {
             GameOver();
         }
@@ -102,19 +87,11 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
 
     public void ConsumeMove()
     {
-        movesRemaining = Mathf.Max(0, movesRemaining - 1);
+        SessionManager.Instance.ConsumeMove();
     }
     #endregion
 
     #region GAME STATE
-    public void InitializeMainMenu()
-    {
-        state = GameState.MainMenu;
-
-        // play menu music
-        MusicManager.Instance.PlayMusic(MusicManager.Instance.menuMusic, mainMenuMusicVolume, musicFadeTime);
-    }
-
     public void GoToMainMenu()
     {
         state = GameState.Loading;
@@ -129,16 +106,24 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
         InitializeMainMenu();
     }
 
+    public void InitializeMainMenu()
+    {
+        state = GameState.MainMenu;
+
+        // play menu music
+        MusicManager.Instance.PlayMusic(MusicManager.Instance.menuMusic, mainMenuMusicVolume, musicFadeTime);
+    }
+
     public void GameOver()
     {
         state = GameState.GameOver;
-        onGameOver?.Invoke();
 
         // trigger game over sequence
         StartCoroutine(GameOverSequence());
     }
 
-    private int GetUnusedMoves() => Mathf.Max(0, GetCurrentStage().maxMoves - movesRemaining);
+    private int GetUnusedMoves() => Mathf.Max(0, GetCurrentStage().maxMoves - MovesRemaining);
+
     private void StageWin()
     {
         // get the amount of unused moves
@@ -146,10 +131,9 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
 
         // give bonus points for winning with extra moves remaining
         int extraMovesBonusScore = unusedMoves * extraMoveScoreValue;
-        AddScore(extraMovesBonusScore);
+        SessionManager.Instance.AddScore(extraMovesBonusScore);
 
         state = GameState.Win;
-        onStageWin?.Invoke();
 
         // trigger win sequence
         StartCoroutine(StageWinSequence());
@@ -157,8 +141,6 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
 
     private IEnumerator GameOverSequence()
     {
-        Debug.Log("Game over!");
-
         // TODO:play game over effects
 
         // play game over sound
@@ -170,6 +152,8 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
         // stop ambient
         MusicManager.Instance.StopAmbient();
 
+        onGameOver?.Invoke();
+
         yield return new WaitForSeconds(gameOverSequenceTime);
 
         // trigger event to show game over popup
@@ -178,17 +162,27 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
 
     private IEnumerator StageWinSequence()
     {
-        Debug.Log("Stage won!");
+        // update coins earned amount
+        SessionManager.Instance.OnStageWin();
+
+        // give to the player the coins earned in this session
+        Player player = Player.Instance;
+        int sessionCoinsEarned = SessionManager.Instance.SessionCoins;
+        player.AddCoins(sessionCoinsEarned);
+
+        // save the player coins
+        SaveManager.Instance.SaveCoins(player.UserData.coins);
+        PlayerPrefs.Save();
 
         // TODO: play game win effects
-
-        // TODO: reward with coins
 
         // play win sound
         AudioManager.Instance.PlaySound2DOneShot(winSound, pitchVariation: 0.05f);
 
         // lower music volume
         MusicManager.Instance.SetMusicVolume(stageOverMusicVolume);
+
+        onStageWin?.Invoke();
 
         yield return new WaitForSeconds(gameWinSequenceTime);
 
@@ -247,27 +241,12 @@ public class GameManager : SingletonMonoBehaviour<GameManager>
         var stage = stages[stageIndex];
 
         // initialize stage data
-        score = 0;
-        movesRemaining = stage.maxMoves;
-        scoreToWin = stage.requiredScoreToWin;
+        // note: session values are initialized when scene loads
+        // note: board is initialized when scene loads
 
         // TODO: spawn stage background
 
-        // note: board is loaded when starting the stage scene
-
         onStageLoaded?.Invoke();
-    }
-    #endregion
-
-    #region SCORE
-    public void AddScore(int amount)
-    {
-        score = Mathf.Max(0, score + amount);
-
-        // TODO: play score increase effects
-        // TODO: different sounds based on amount of score
-
-        onScoreChanged?.Invoke();
     }
     #endregion
 

@@ -51,14 +51,11 @@ MonoBehaviour:
   gameWinSequenceTime: 1
   mainMenuMusicVolume: 0.7
   stageOverMusicVolume: 0.4
-  musicFadeTime: 1
+  musicFadeTime: 5
   extraMoveScoreValue: 100
   winSound: {fileID: 8300000, guid: 4fca92a6b1f856645b6f6c6bf2c65e9d, type: 3}
   gameOverSound: {fileID: 8300000, guid: 140aad2ab14746648aa4f2b879f67330, type: 3}
   state: 0
-  score: 0
-  movesRemaining: 0
-  scoreToWin: 0
   currentStageIndex: 0
 --- !u!114 &5042446032202237396
 MonoBehaviour:

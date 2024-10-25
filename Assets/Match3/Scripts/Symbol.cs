@@ -48,7 +48,6 @@ public class Symbol : MonoBehaviour
     // MOVEMENT
     public void MoveToPosition(Vector2 targetPos)
     {
-        Debug.Log("Moving");
         isMoving = true;
         PlayMovementAnimation(targetPos);
     }

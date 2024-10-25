@@ -7,6 +7,7 @@ public class UIGameWinPopup : MonoBehaviour
     [Header("References")]
     public UIWindow window;
     public TMP_Text scoreText;
+    public TMP_Text coinsEarnedText;
     public Button replayButton;
     public Button homeButton;
     // TODO: stars
@@ -45,7 +46,10 @@ public class UIGameWinPopup : MonoBehaviour
 
     private void UpdateUI()
     {
-        scoreText.text = GameManager.Instance.Score.ToString();
+        scoreText.text = SessionManager.Instance.Score.ToString();
+
+        int coinsEarned = SessionManager.Instance.SessionCoins;
+        coinsEarnedText.text = coinsEarned > 0 ? $"+ {coinsEarned}" : coinsEarned.ToString();
     }
 
     public void Replay()
