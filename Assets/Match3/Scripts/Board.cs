@@ -68,6 +68,7 @@ public class Board : SingletonMonoBehaviour<Board>
     private float spacingY;
 
     public BoardState State => state;
+    public Tile[,] Tiles => board;
 
     //public static Board Instance { get; private set; }
 
@@ -223,10 +224,53 @@ public class Board : SingletonMonoBehaviour<Board>
         //Debug.Log("Generated new board.");
     }
 
+    public Vector3 GetTilePosition(Vector2Int tileIndices)
+    {
+        return new(tileIndices.x - spacingX, tileIndices.y - spacingY);
+    }
+
     private bool BoardIsPlayable()
     {
         // TODO: check if there's at least one way to make a match in the current board
-        return true;
+        return HasValidMove();
+    }
+
+    private bool HasValidMove()
+    {
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                // check each possible swap (up, down, left, right)
+                foreach (var direction in new Vector2Int[] { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right })
+                {
+                    int newX = x + direction.x;
+                    int newY = y + direction.y;
+
+                    // ensure the new position is within bounds
+                    if (newX >= 0 && newX <= width - 1 && newY >= 0 && newY <= height - 1)
+                    {
+                        // temporarily swap tiles
+                        Symbol firstSymbol = board[x, y].symbol;
+                        Symbol secondSymbol = board[newX, newY].symbol;
+                        SwapSymbols(firstSymbol, secondSymbol);
+
+                        // check if swap created a match
+                        if (BoardContainsMatch())
+                        {
+                            // revert swap and return true as a valid move exists
+                            SwapSymbols(firstSymbol, secondSymbol);
+                            return true;
+                        }
+
+                        // revert swap if no match was found
+                        SwapSymbols(firstSymbol, secondSymbol);
+                    }
+                }
+            }
+        }
+        // no valid move found
+        return false;
     }
 
     private SymbolData GetRandomSymbol()
@@ -549,7 +593,7 @@ public class Board : SingletonMonoBehaviour<Board>
 
             // move the symbol to the correct location
             Vector2 targetPos = new(x - spacingX, y - spacingY);
-            symbolAbove.MoveToPosition(targetPos);
+            // TODO: check if not needed symbolAbove.MoveToPosition(targetPos);
             // update the symbol indices
             symbolAbove.SetIndices(tileIndices);
 
@@ -584,7 +628,7 @@ public class Board : SingletonMonoBehaviour<Board>
 
         // move the symbol to the new location
         Vector2 targetPosition = new(symbolInstance.transform.position.x, symbolInstance.transform.position.y - yToMoveTo);
-        symbolInstance.MoveToPosition(targetPosition);
+        // TODO: check if not neededsymbolInstance.MoveToPosition(targetPosition);
     }
 
     private int FindLowestEmptyTileY(int x)
@@ -624,13 +668,19 @@ public class Board : SingletonMonoBehaviour<Board>
             var currentSelectedSymbol = selectedSymbol;
             var symbolsAreAdjacent = IsAdjacent(currentSelectedSymbol, symbol);
 
-            // if they are adjacent, swap them*
+            // if they are adjacent, swap them
             // we only execute this if there's no ongoing swapping
             if (symbolsAreAdjacent)
             {
                 state = BoardState.ProcessingMove;
 
+                // swap symbols
                 SwapSymbols(currentSelectedSymbol, symbol);
+                
+                // play swap sound
+                AudioManager.Instance.PlaySound2DOneShot(swapSound, 0.1f);
+
+                // process possible matches
                 StartCoroutine(ProcessMatchesAfterSwap(currentSelectedSymbol, symbol));
             }
             // otherwise select the new symbol
@@ -672,11 +722,8 @@ public class Board : SingletonMonoBehaviour<Board>
         // move the symbols to their new position
         Vector3 firstSymbolPos = board[firstSymbol.X, firstSymbol.Y].symbol.transform.position;
         Vector3 secondSymbolPos = board[secondSymbol.X, secondSymbol.Y].symbol.transform.position;
-        firstSymbol.MoveToPosition(secondSymbolPos);
-        secondSymbol.MoveToPosition(firstSymbolPos);
-
-        // play swap sound
-        AudioManager.Instance.PlaySound2DOneShot(swapSound, 0.1f);
+        // TODO: check if not neededfirstSymbol.MoveToPosition(secondSymbolPos);
+        // TODO: check if not neededsecondSymbol.MoveToPosition(firstSymbolPos);
     }
     #endregion
 
@@ -699,6 +746,9 @@ public class Board : SingletonMonoBehaviour<Board>
             // swap the symbols back to their original tiles
             SwapSymbols(firstSymbol, secondSymbol);
 
+            // play swap sound
+            AudioManager.Instance.PlaySound2DOneShot(swapSound, 0.1f);
+
             // wait for the symbols to finish swapping their position
             yield return new WaitForSeconds(symbolSwapDuration);
 
@@ -708,17 +758,15 @@ public class Board : SingletonMonoBehaviour<Board>
                 GameManager.Instance.ProcessTurn();
             }
 
+            // check to make sure there is at least one possible match, otherwise regenerate the board
+            if (!BoardIsPlayable())
+            {
+                // regenerate the board
+                CreatePlayableBoardWithNoMatches();
+            }
+
             // go back to idle state
             state = BoardState.Idle;
-        }
-
-        // check to make sure there is at least one possible match, otherwise regenerate the board
-        if (!BoardIsPlayable())
-        {
-            // regenerate the board
-            CreatePlayableBoardWithNoMatches();
-
-            // new board is generated
         }
     }
 
@@ -781,6 +829,13 @@ public class Board : SingletonMonoBehaviour<Board>
             if (GameManager.Instance.State == GameState.Playing)
             {
                 GameManager.Instance.ProcessTurn();
+            }
+
+            // check to make sure there is at least one possible match, otherwise regenerate the board
+            if (!BoardIsPlayable())
+            {
+                // regenerate the board
+                CreatePlayableBoardWithNoMatches();
             }
 
             // the board goes back in idle state

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using UnityEngine;
 
 public class Symbol : MonoBehaviour
@@ -9,9 +8,10 @@ public class Symbol : MonoBehaviour
 
     [Header("Settings")]
     [SerializeField] private SymbolData data;
+    [SerializeField] private float moveSpeed = 10f;
 
-    [Header("Animation")]
-    [SerializeField] private LeanTweenType movementAnimationType;
+    //[Header("Animation")]
+    //[SerializeField] private LeanTweenType movementAnimationType;
 
     [Header("Debug")]
     [SerializeField, ReadOnly] private int x;
@@ -46,47 +46,64 @@ public class Symbol : MonoBehaviour
     }
 
     // MOVEMENT
-    public void MoveToPosition(Vector2 targetPos)
+    public void MoveToPosition(Vector3 targetPos)
     {
-        isMoving = true;
-        PlayMovementAnimation(targetPos);
+        Vector3 moveDir = (targetPos - transform.position);
+        transform.position += moveSpeed * Time.deltaTime * moveDir;
+
+        //PlayMovementAnimation(targetPos); // we don't use animations for now to make it consistent
     }
 
-    private void PlayMovementAnimation(Vector2 targetPos)
+    private void Update()
     {
-        //StartCoroutine(MoveCoroutine(targetPos));
+        Vector3 targetPosition = Board.Instance.GetTilePosition(GetIndices());
 
-        // cancel any ongoing movement animation
-        LeanTween.cancel(moveTweenId);
-
-        // do the movement animation
-        moveTweenId = LeanTween.move(gameObject, targetPos, Board.Instance.symbolSwapDuration)
-            .setEase(movementAnimationType)
-            .setOnComplete(() => FinishedMovementAnimation()).id;
-    }
-    private void FinishedMovementAnimation()
-    {
-        isMoving = false;
-    }
-
-    private IEnumerator MoveCoroutine(Vector2 targetPos)
-    {
-        isMoving = true;
-
-        float animationDuration = Board.Instance.symbolSwapDuration;
-
-        Vector2 startPos = transform.position;
-        float elapsedTime = 0f;
-        while (elapsedTime < animationDuration)
+        if (targetPosition != transform.position)
         {
-            float t = elapsedTime / animationDuration;
-            transform.position = Vector2.Lerp(startPos, targetPos, t);
-            elapsedTime += Time.deltaTime;
-            yield return null;
+            isMoving = true;
+            MoveToPosition(targetPosition);
         }
-
-        transform.position = targetPos;
-        isMoving = false;
+        else
+        {
+            isMoving = false;
+        }
     }
 
+    // we don't use animations for now
+    //private void PlayMovementAnimation(Vector2 targetPos)
+    //{
+    //    //StartCoroutine(MoveCoroutine(targetPos));
+    //
+    //    // cancel any ongoing movement animation
+    //    LeanTween.cancel(moveTweenId);
+    //
+    //    // do the movement animation
+    //    moveTweenId = LeanTween.move(gameObject, targetPos, Board.Instance.symbolSwapDuration)
+    //        .setEase(movementAnimationType)
+    //        .setOnComplete(() => FinishedMovementAnimation()).id;
+    //}
+    //private void FinishedMovementAnimation()
+    //{
+    //    isMoving = false;
+    //}
+
+    //private IEnumerator MoveCoroutine(Vector2 targetPos)
+    //{
+    //    isMoving = true;
+    //
+    //    float animationDuration = Board.Instance.symbolSwapDuration;
+    //
+    //    Vector2 startPos = transform.position;
+    //    float elapsedTime = 0f;
+    //    while (elapsedTime < animationDuration)
+    //    {
+    //        float t = elapsedTime / animationDuration;
+    //        transform.position = Vector2.Lerp(startPos, targetPos, t);
+    //        elapsedTime += Time.deltaTime;
+    //        yield return null;
+    //    }
+    //
+    //    transform.position = targetPos;
+    //    isMoving = false;
+    //}
 }
