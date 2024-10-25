@@ -24,4 +24,4 @@ MonoBehaviour:
   boardWidth: 6
   boardHeight: 8
   requiredScoreToWin: 10000
-  maxMoves: 60
+  maxMoves: 100
