@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd1d64f60e1ec9741b5f37a051b03374, type: 3}
+  m_Name: Bomb
+  m_EditorClassIdentifier: 
+  sprite: {fileID: 21300000, guid: 45b11791f8877894bac2d724d63dfe6d, type: 3}
+  scoreValue: 10
+  color: {r: 1, g: 1, b: 1, a: 1}
+  consumeSound: {fileID: 8300000, guid: 765d19bf59a39fb4387e6e940baef65a, type: 3}
+  explosionRadius: 2
+  explosionSound: {fileID: 8300000, guid: 391d98cef028201498d9c27a7c202286, type: 3}

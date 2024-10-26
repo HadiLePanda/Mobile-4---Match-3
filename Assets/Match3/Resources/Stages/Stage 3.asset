@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   backgroundPrefab: {fileID: 0}
   stageSymbols:
-  - {fileID: 11400000, guid: 37c0f93da39550a47a0a24b82f1b9af7, type: 2}
   - {fileID: 11400000, guid: 2f17136e816bfe540ba9934975acc634, type: 2}
   - {fileID: 11400000, guid: 49175fc2f6ba4594baa5f9c750aaace1, type: 2}
   - {fileID: 11400000, guid: 550e60989b6f1f3499d2cc93628da7a8, type: 2}
@@ -22,5 +21,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5c72470407ddf3b458903372b5273e2e, type: 2}
   boardWidth: 6
   boardHeight: 8
-  requiredScoreToWin: 3000
-  maxMoves: 25
+  requiredScoreToWin: 4000
+  maxMoves: 35
+  numberOfBombs: 3

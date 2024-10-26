@@ -111,6 +111,7 @@ MonoBehaviour:
   symbolPrefab: {fileID: 1767978882810426978, guid: 09b5819347ff1eb4b80c55a8c3aab420, type: 3}
   symbolsParent: {fileID: 243235148375041590}
   boardObject: {fileID: 7863372165197008739}
+  bombSymbol: {fileID: 11400000, guid: 38c58d1e75475fd478ea6ee4f15de03a, type: 2}
   width: 6
   height: 8
   maxTriesToGenerateBoard: 100

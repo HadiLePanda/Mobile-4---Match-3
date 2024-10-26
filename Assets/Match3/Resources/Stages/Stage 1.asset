@@ -22,3 +22,4 @@ MonoBehaviour:
   boardHeight: 8
   requiredScoreToWin: 2000
   maxMoves: 10
+  numberOfBombs: 0

@@ -17,6 +17,8 @@ public class UIGame : MonoBehaviour
     public TMP_Text stageText;
     public Button pauseButton;
     public Slider scoreSlider;
+    public TMP_Text bombQuantityText;
+    public Button bombButton;
 
     private void Update()
     {
@@ -38,6 +40,16 @@ public class UIGame : MonoBehaviour
         pauseButton.interactable = GameManager.Instance.State == GameState.Playing;
         movesRemaining.text = SessionManager.Instance.MovesRemaining.ToString();
         scoreSlider.value = SessionManager.Instance.ScoreProgressPercent;
+        bombQuantityText.text = SessionManager.Instance.BombsRemaining.ToString();
+        bombButton.interactable = SessionManager.Instance.BombsRemaining > 0;
+    }
+
+    public void UseBomb()
+    {
+        if (SessionManager.Instance.BombsRemaining < 1)
+            return;
+
+        Board.Instance.SpawnBombRandomly();
     }
 
     public void Pause()

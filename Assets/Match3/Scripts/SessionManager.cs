@@ -16,10 +16,12 @@ public class SessionManager : SingletonMonoBehaviour<SessionManager>
     [SerializeField, ReadOnly] private int score;
     [SerializeField, ReadOnly] private int sessionCoins;
     [SerializeField, ReadOnly] private int movesRemaining;
+    [SerializeField, ReadOnly] private int bombsRemaining;
 
     public int Score => score;
     public int SessionCoins => sessionCoins;
     public int MovesRemaining => movesRemaining;
+    public int BombsRemaining => bombsRemaining;
 
     public int ScoreToWin => GameManager.Instance.GetCurrentStage().requiredScoreToWin;
     public int MaxMoves => GameManager.Instance.GetCurrentStage().maxMoves;
@@ -38,14 +40,23 @@ public class SessionManager : SingletonMonoBehaviour<SessionManager>
 
     public static Action onScoreChanged;
 
-    //protected override void Init() => InitializeSession();
+    protected override void Init() => InitializeSession();
 
-    private void Start()
+    private void InitializeSession()
     {
         score = 0;
         sessionCoins = 0;
+        bombsRemaining = GameManager.Instance.GetCurrentStage().numberOfBombs;
         movesRemaining = GameManager.Instance.GetCurrentStage().maxMoves;
     }
+
+    //private void Start()
+    //{
+    //    score = 0;
+    //    sessionCoins = 0;
+    //    bombsRemaining = GameManager.Instance.GetCurrentStage().numberOfBombs;
+    //    movesRemaining = GameManager.Instance.GetCurrentStage().maxMoves;
+    //}
 
     public void OnStageWin()
     {
@@ -82,6 +93,15 @@ public class SessionManager : SingletonMonoBehaviour<SessionManager>
     public void ConsumeMove()
     {
         movesRemaining = Mathf.Max(0, movesRemaining - 1);
+    }
+
+    public void ConsumeBomb()
+    {
+        bombsRemaining = Mathf.Max(0, bombsRemaining - 1);
+    }
+    public void AddBomb(int quantity)
+    {
+        bombsRemaining = Mathf.Max(0, bombsRemaining + quantity);
     }
     #endregion
 }

@@ -12,4 +12,5 @@ public class StageData : ScriptableObject
     public int boardHeight = 8;
     public int requiredScoreToWin = 100;
     public int maxMoves = 10;
+    public int numberOfBombs = 1;
 }

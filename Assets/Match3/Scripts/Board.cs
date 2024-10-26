@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Random = UnityEngine.Random;
@@ -33,6 +34,7 @@ public class Board : SingletonMonoBehaviour<Board>
     public Symbol symbolPrefab;
     public Transform symbolsParent;
     public GameObject boardObject;
+    public BombSymbol bombSymbol;
 
     [Header("Settings")]
     public int width = 6;
@@ -91,6 +93,9 @@ public class Board : SingletonMonoBehaviour<Board>
     {
         InitializeBoard();
         CreatePlayableBoardWithNoMatches();
+
+        // spawn a bomb at the start
+        SpawnBombRandomly(false);
     }
 
     public void InitializeBoard()
@@ -102,6 +107,8 @@ public class Board : SingletonMonoBehaviour<Board>
     public void CreatePlayableBoardWithNoMatches()
     {
         state = BoardState.Generating;
+
+        symbolsThatMatched.Clear();
 
         // try to generate a board with no matches on start
         int triesToGenerateBoard = 0;
@@ -133,21 +140,89 @@ public class Board : SingletonMonoBehaviour<Board>
         if (GameManager.Instance.State != GameState.Playing)
             return;
 
-        // detected player click
-        // that is not blocked by a UI element
-        if (Input.GetMouseButtonDown(0) &&
-            !EventSystem.current.IsPointerOverGameObject())
+        // if the board is not busy
+        if (state == BoardState.Idle)
         {
-            // send a raycast
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            RaycastHit2D hit = Physics2D.Raycast(ray.origin, ray.direction);
-
-            // we clicked on a symbol
-            if (hit.collider != null && hit.collider.GetComponentInParent<Symbol>())
+            // check for player clicking on objects
+            // that are not blocked by a UI element
+            if (Input.GetMouseButtonDown(0) &&
+                !EventSystem.current.IsPointerOverGameObject())
             {
-                // select
-                Symbol clickedSymbol = hit.collider.GetComponentInParent<Symbol>();
-                OnSymbolClicked(clickedSymbol);
+                // send a raycast
+                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                RaycastHit2D hit = Physics2D.Raycast(ray.origin, ray.direction);
+
+                // we clicked on a symbol
+                if (hit.collider != null && hit.collider.GetComponentInParent<Symbol>())
+                {
+                    // process what to do after clicking on that symbol
+                    Symbol clickedSymbol = hit.collider.GetComponentInParent<Symbol>();
+                    OnSymbolClicked(clickedSymbol);
+                }
+            }
+        }
+    }
+
+    public void OnSymbolClicked(Symbol symbol)
+    {
+        // the board is busy, don't react to symbol clicks
+        if (state != BoardState.Idle)
+            return;
+
+        // if we clicked on a consumable symbol
+        // while not having any symbol selected
+        if (selectedSymbol == null &&
+            symbol.Data is ConsumableSymbol consumableSymbol)
+        {
+            state = BoardState.ProcessingMove;
+
+            // trigger consume logic
+            consumableSymbol.Consume(this, symbol);
+
+            // process turn after the effects of the consumable
+            StartCoroutine(ProcessTurnAfterConsumable(consumableSymbol));
+            return;
+        }
+
+        // if we don't have any symbol currently selected, then select it
+        if (selectedSymbol == null)
+        {
+            SelectSymbol(symbol);
+        }
+        // if we selected the same symbol twice, deselect it
+        else if (selectedSymbol == symbol)
+        {
+            DeselectCurrentSymbol();
+        }
+        // if we selected a different symbol while we have a symbol selected,
+        // either swap them or change current selection
+        else if (selectedSymbol != symbol)
+        {
+            // check if the symbols are adjacent to eachother
+            var currentSelectedSymbol = selectedSymbol;
+            var symbolsAreAdjacent = IsAdjacent(currentSelectedSymbol, symbol);
+
+            // if they are adjacent, swap them
+            if (symbolsAreAdjacent)
+            {
+                state = BoardState.ProcessingMove;
+
+                DeselectCurrentSymbol();
+
+                // swap symbols
+                SwapSymbols(currentSelectedSymbol, symbol);
+
+                // play swap sound
+                AudioManager.Instance.PlaySound2DOneShot(swapSound, 0.1f);
+
+                // process possible matches
+                StartCoroutine(ProcessTurnAfterSwap(currentSelectedSymbol, symbol));
+            }
+            // otherwise select the new symbol
+            else
+            {
+                DeselectCurrentSymbol();
+                SelectSymbol(symbol);
             }
         }
     }
@@ -531,6 +606,132 @@ public class Board : SingletonMonoBehaviour<Board>
     }
     #endregion
 
+    public Tile GetRandomTile()
+    {
+        // get random indices for the rows and columns
+        int x = Random.Range(0, board.GetLength(0));
+        int y = Random.Range(0, board.GetLength(1));
+
+        // Return the tile at the random position
+        return board[x, y];
+    }
+
+    public Tile GetRandomNonConsumableTile()
+    {
+        int triesToFindTile = 0;
+        Tile randomTile = new(false, null);
+        while (triesToFindTile < maxTriesToGenerateBoard)
+        {
+            // get a random tile
+            int x = Random.Range(0, board.GetLength(0));
+            int y = Random.Range(0, board.GetLength(1));
+            randomTile = board[x, y];
+
+            triesToFindTile++;
+
+            if (randomTile.symbol.Data is not ConsumableSymbol)
+            {
+                break;
+            }
+        }
+
+        // Return the tile at the random position
+        return randomTile;
+    }
+
+    #region POWERS
+    public void SpawnBombRandomly(bool consume = true)
+    {
+        if (state != BoardState.Idle)
+            return;
+
+        // make sure we have at least 1 bomb in stock
+        if (SessionManager.Instance.BombsRemaining < 1)
+            return;
+
+        // remove one bomb from the stock
+        if (consume)
+            SessionManager.Instance.ConsumeBomb();
+
+        // choose a random tile
+        Tile randomSpawnableTile = GetRandomNonConsumableTile();
+        Vector2Int tileIndices = randomSpawnableTile.symbol.GetIndices();
+
+        // delete the symbol inside it
+        RemoveSymbolAt(tileIndices);
+
+        // spawn a bomb in the tile
+        Vector2 spawnPos = new(tileIndices.x - spacingX, tileIndices.y - spacingY);
+        var bombInstance = SpawnSymbol(tileIndices, spawnPos, bombSymbol);
+
+        // update the tile where the symbol spawned at
+        board[tileIndices.x, tileIndices.y] = new Tile(true, bombInstance);
+
+        // TODO: play bomb spawn effect
+        // TODO: play bomb spawn sound
+    }
+
+    public void ActivateBomb(Vector2Int tilePosition, int explosionRadius = 2)
+    {
+        // get the symbol inside tile
+        Symbol tileSymbol = board[tilePosition.x, tilePosition.y].symbol;
+
+        // make sure the symbol in the origin of the explosion in a bomb
+        if (tileSymbol.Data is not BombSymbol)
+            return;
+
+        // get the list of symbols to remove with the explosion
+        List<Symbol> symbolsToRemove = new();
+
+        // -> the surrounding symbols affected by the explosion
+        List<Symbol> surroundingSymbols = GetSurroundingTiles(tilePosition, explosionRadius).Select(x => x.symbol).ToList();
+        symbolsToRemove.AddRange(surroundingSymbols);
+
+        // -> the bomb symbol
+        symbolsToRemove.Add(tileSymbol);
+
+        // gain cumulated score of the exploded symbols
+        if (GameManager.Instance.State == GameState.Playing)
+        {
+            int explodedSymbolsTotalScore = CalculateCumulatedSymbolsScore(surroundingSymbols);
+            if (explodedSymbolsTotalScore > 0)
+                SessionManager.Instance.AddScore(explodedSymbolsTotalScore);
+        }
+
+        // remove the symbols and refill them
+        RemoveAndRefill(symbolsToRemove);
+
+        // play explosion sound
+        AudioManager.Instance.PlaySound2DOneShot(regularMatchSound, matchPitchVariation);
+    }
+
+    public List<Tile> GetSurroundingTiles(Vector2Int tilePosition, int radius)
+    {
+        List<Tile> surroundingTiles = new();
+
+        // define the range of rows and columns to check within the radius
+        int minRow = Mathf.Max(0, tilePosition.x - radius);
+        int maxRow = Mathf.Min(board.GetLength(0) - 1, tilePosition.x + radius);
+        int minCol = Mathf.Max(0, tilePosition.y - radius);
+        int maxCol = Mathf.Min(board.GetLength(1) - 1, tilePosition.y + radius);
+
+        // loop through each tile within the radius range
+        for (int x = minRow; x <= maxRow; x++)
+        {
+            for (int y = minCol; y <= maxCol; y++)
+            {
+                // exclude the center tile itself if desired
+                if (x == tilePosition.x && y == tilePosition.y)
+                    continue;
+
+                // add the tile to the list
+                surroundingTiles.Add(board[x, y]);
+            }
+        }
+        return surroundingTiles;
+    }
+    #endregion
+
     #region CASCADING
     private void RemoveAndRefill(List<Symbol> symbolsToRemove)
     {
@@ -592,8 +793,9 @@ public class Board : SingletonMonoBehaviour<Board>
             Symbol symbolAbove = board[x, firstNonEmptyY].symbol;
 
             // move the symbol to the correct location
-            Vector2 targetPos = new(x - spacingX, y - spacingY);
+            //Vector2 targetPos = new(x - spacingX, y - spacingY);
             // TODO: check if not needed symbolAbove.MoveToPosition(targetPos);
+
             // update the symbol indices
             symbolAbove.SetIndices(tileIndices);
 
@@ -627,7 +829,7 @@ public class Board : SingletonMonoBehaviour<Board>
         board[symbolIndices.x, symbolIndices.y] = new Tile(true, symbolInstance);
 
         // move the symbol to the new location
-        Vector2 targetPosition = new(symbolInstance.transform.position.x, symbolInstance.transform.position.y - yToMoveTo);
+        // Vector2 targetPosition = new(symbolInstance.transform.position.x, symbolInstance.transform.position.y - yToMoveTo);
         // TODO: check if not neededsymbolInstance.MoveToPosition(targetPosition);
     }
 
@@ -644,54 +846,6 @@ public class Board : SingletonMonoBehaviour<Board>
     #endregion
 
     #region SWAPPING
-    public void OnSymbolClicked(Symbol symbol)
-    {
-        // if we don't have any symbol currently selected, then select it
-        if (selectedSymbol == null)
-        {
-            SelectSymbol(symbol);
-        }
-        // if we selected the same symbol twice, deselect it
-        else if (selectedSymbol == symbol)
-        {
-            DeselectCurrentSymbol();
-        }
-        // if we selected a different symbol while we have a symbol selected,
-        // either swap them or change current selection
-        else if (selectedSymbol != symbol)
-        {
-            // we're in the process of moving tiles around, so don't do anything
-            if (state != BoardState.Idle)
-                return;
-
-            // check if the symbols are adjacent to eachother
-            var currentSelectedSymbol = selectedSymbol;
-            var symbolsAreAdjacent = IsAdjacent(currentSelectedSymbol, symbol);
-
-            // if they are adjacent, swap them
-            // we only execute this if there's no ongoing swapping
-            if (symbolsAreAdjacent)
-            {
-                state = BoardState.ProcessingMove;
-
-                // swap symbols
-                SwapSymbols(currentSelectedSymbol, symbol);
-                
-                // play swap sound
-                AudioManager.Instance.PlaySound2DOneShot(swapSound, 0.1f);
-
-                // process possible matches
-                StartCoroutine(ProcessMatchesAfterSwap(currentSelectedSymbol, symbol));
-            }
-            // otherwise select the new symbol
-            else
-            {
-                DeselectCurrentSymbol();
-                SelectSymbol(symbol);
-            }
-        }
-    }
-
     private void SelectSymbol(Symbol symbol)
     {
         selectedSymbol = symbol;
@@ -728,7 +882,33 @@ public class Board : SingletonMonoBehaviour<Board>
     #endregion
 
     #region TURNS
-    private IEnumerator ProcessMatchesAfterSwap(Symbol firstSymbol, Symbol secondSymbol)
+    private IEnumerator ProcessTurnAfterConsumable(ConsumableSymbol consumableSymbol)
+    {
+        state = BoardState.ProcessingMove;
+
+        yield return null;
+
+        // if a match was found, process it
+        if (BoardContainsMatch())
+        {
+            StartCoroutine(ProcessTurnWithMatch());
+        }
+        // if there was no match, just process the turn
+        else
+        {
+            // check to make sure there is at least one possible match, otherwise regenerate the board
+            if (!BoardIsPlayable())
+            {
+                // regenerate the board
+                CreatePlayableBoardWithNoMatches();
+            }
+
+            // go back to idle state
+            state = BoardState.Idle;
+        }
+    }
+
+    private IEnumerator ProcessTurnAfterSwap(Symbol firstSymbol, Symbol secondSymbol)
     {
         state = BoardState.ProcessingMove;
 
@@ -752,7 +932,7 @@ public class Board : SingletonMonoBehaviour<Board>
             // wait for the symbols to finish swapping their position
             yield return new WaitForSeconds(symbolSwapDuration);
 
-            // consume one move after an invalid swap action
+            // consume one move for this invalid swap action
             if (GameManager.Instance.State == GameState.Playing)
             {
                 GameManager.Instance.ProcessTurn();
@@ -800,6 +980,12 @@ public class Board : SingletonMonoBehaviour<Board>
         {
             AudioManager.Instance.PlaySound2DOneShot(cascadeFourMatchSound, matchPitchVariation);
             AudioManager.Instance.PlaySound2DOneShot(ultraCascadeJingleSound, matchPitchVariation);
+        }
+
+        // give a bomb for chaining 2 cascades
+        if (cascadeChainCount == 2)
+        {
+            SessionManager.Instance.AddBomb(1);
         }
 
         // wait for a delay before processing another match
@@ -864,6 +1050,13 @@ public class Board : SingletonMonoBehaviour<Board>
 
         // calculate the final score for this match
         int totalScore = Mathf.CeilToInt((matchScore * matchLengthMultiplier) * cascadeComboMultiplier);
+        return totalScore;
+    }
+
+    private int CalculateCumulatedSymbolsScore(List<Symbol> symbols)
+    {
+        int totalScore = 0;
+        symbols.ForEach(x => totalScore += x.Data.scoreValue);
         return totalScore;
     }
     #endregion
